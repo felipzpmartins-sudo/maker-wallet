@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { ArrowLeft, Plus, KeyRound, ShieldX } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
-import { departmentIcons, type AccessEntry } from "@/lib/mock-data";
+import { departmentIcons, getAccessDepartmentIds, type AccessEntry } from "@/lib/mock-data";
 import { Button } from "@/components/ui/button";
 import { AccessCard } from "@/components/AccessCard";
 import { AccessForm } from "@/components/AccessForm";
@@ -15,7 +15,7 @@ export const Route = createFileRoute("/_app/departments/$id")({
 function DepartmentDetailPage() {
   const { id } = Route.useParams();
   const navigate = useNavigate();
-  const { departments, accesses, canAccessDepartment, isAdmin, saveAccess, deleteAccess } =
+  const { departments, accesses, canAccessDepartment, isAdmin, isCeo, saveAccess, deleteAccess } =
     useAuth();
 
   const department = departments.find((d) => d.id === id);
@@ -28,7 +28,10 @@ function DepartmentDetailPage() {
     if (!department) navigate({ to: "/departments" });
   }, [department, navigate]);
 
-  const deptAccesses = useMemo(() => accesses.filter((a) => a.departmentId === id), [accesses, id]);
+  const deptAccesses = useMemo(
+    () => accesses.filter((a) => getAccessDepartmentIds(a).includes(id)),
+    [accesses, id],
+  );
 
   if (!department) return null;
 
@@ -93,6 +96,7 @@ function DepartmentDetailPage() {
             <AccessCard
               key={access.id}
               access={access}
+              departments={departments}
               canManage={isAdmin}
               onEdit={(a) => {
                 setEditing(a);
@@ -109,6 +113,8 @@ function DepartmentDetailPage() {
           open={formOpen}
           onOpenChange={setFormOpen}
           departmentId={id}
+          departments={departments}
+          allowMultiDepartment={isCeo}
           initial={editing}
           onSave={saveAccess}
         />

@@ -38,6 +38,7 @@ export interface Department {
 export interface AccessEntry {
   id: string;
   departmentId: string;
+  departmentIds?: string[];
   type: AccessType;
   name: string;
   // optional fields depending on type
@@ -53,6 +54,9 @@ export interface AccessEntry {
   password: string;
   notes?: string;
 }
+
+export const getAccessDepartmentIds = (access: AccessEntry) =>
+  access.departmentIds?.length ? access.departmentIds : [access.departmentId];
 
 export interface RenewalService {
   id: string;

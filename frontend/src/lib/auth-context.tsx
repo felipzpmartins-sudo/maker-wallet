@@ -8,6 +8,7 @@ import {
   type Department,
   type AccessEntry,
   type RenewalService,
+  getAccessDepartmentIds,
 } from "./mock-data";
 import { ApiError, apiRequest } from "./api";
 
@@ -289,7 +290,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       await apiRequest<null>(`/departments/${id}`, { method: "DELETE", token });
       await syncDepartmentsFromApi(token);
       await syncUsersFromApi(token);
-      setAccesses((prev) => prev.filter((access) => access.departmentId !== id));
+      setAccesses((prev) =>
+        prev
+          .map((access) => ({
+            ...access,
+            departmentIds: getAccessDepartmentIds(access).filter((departmentId) => departmentId !== id),
+          }))
+          .filter((access) => access.departmentIds?.length),
+      );
       return;
     }
     setDepartments((prev) => prev.filter((department) => department.id !== id));
@@ -299,7 +307,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         allowedDepartments: user.allowedDepartments.filter((departmentId) => departmentId !== id),
       })),
     );
-    setAccesses((prev) => prev.filter((access) => access.departmentId !== id));
+    setAccesses((prev) =>
+      prev
+        .map((access) => ({
+          ...access,
+          departmentIds: getAccessDepartmentIds(access).filter((departmentId) => departmentId !== id),
+        }))
+        .filter((access) => access.departmentIds?.length),
+    );
   }, [syncDepartmentsFromApi, syncUsersFromApi, token]);
 
   const saveAccess = useCallback((access: AccessEntry) => {

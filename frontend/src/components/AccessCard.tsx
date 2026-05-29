@@ -13,10 +13,16 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { ACCESS_TYPE_LABELS, type AccessEntry } from "@/lib/mock-data";
+import {
+  ACCESS_TYPE_LABELS,
+  getAccessDepartmentIds,
+  type AccessEntry,
+  type Department,
+} from "@/lib/mock-data";
 
 interface AccessCardProps {
   access: AccessEntry;
+  departments?: Department[];
   canManage?: boolean;
   onEdit?: (a: AccessEntry) => void;
   onDelete?: (id: string) => void;
@@ -43,8 +49,11 @@ function Field({ label, value, link }: { label: string; value?: string; link?: b
   );
 }
 
-export function AccessCard({ access, canManage, onEdit, onDelete }: AccessCardProps) {
+export function AccessCard({ access, departments = [], canManage, onEdit, onDelete }: AccessCardProps) {
   const [confirmOpen, setConfirmOpen] = useState(false);
+  const accessDepartments = departments.filter((department) =>
+    getAccessDepartmentIds(access).includes(department.id),
+  );
 
   return (
     <div className="rounded-2xl border border-border bg-card p-5">
@@ -54,6 +63,15 @@ export function AccessCard({ access, canManage, onEdit, onDelete }: AccessCardPr
           <Badge variant="secondary" className="mt-1">
             {ACCESS_TYPE_LABELS[access.type]}
           </Badge>
+          {accessDepartments.length > 0 && (
+            <div className="mt-2 flex flex-wrap gap-1.5">
+              {accessDepartments.map((department) => (
+                <Badge key={department.id} variant="outline">
+                  {department.name}
+                </Badge>
+              ))}
+            </div>
+          )}
         </div>
         {canManage && (
           <div className="flex gap-1">

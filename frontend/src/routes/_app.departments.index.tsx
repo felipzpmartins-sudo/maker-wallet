@@ -1,15 +1,70 @@
+import { useMemo, useState } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { ArrowRight, KeyRound, ShieldX } from "lucide-react";
+import { ArrowRight, KeyRound, Plus, Search, ShieldX } from "lucide-react";
 import { ConfidentialBadge } from "@/components/ConfidentialBadge";
+import { AccessCard } from "@/components/AccessCard";
+import { AccessForm } from "@/components/AccessForm";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { useAuth } from "@/lib/auth-context";
-import { departmentIcons, ROLE_LABELS } from "@/lib/mock-data";
+import {
+  departmentIcons,
+  getAccessDepartmentIds,
+  ROLE_LABELS,
+  type AccessEntry,
+} from "@/lib/mock-data";
 
 export const Route = createFileRoute("/_app/departments/")({
   component: DepartmentsPage,
 });
 
 function DepartmentsPage() {
-  const { currentUser, visibleDepartments, accesses } = useAuth();
+  const {
+    currentUser,
+    visibleDepartments,
+    accesses,
+    departments,
+    isCeo,
+    isAdmin,
+    saveAccess,
+    deleteAccess,
+  } = useAuth();
+  const [search, setSearch] = useState("");
+  const [areaFilter, setAreaFilter] = useState("all");
+  const [formOpen, setFormOpen] = useState(false);
+  const [editing, setEditing] = useState<AccessEntry | null>(null);
+
+  const filteredAccesses = useMemo(() => {
+    const query = search.trim().toLowerCase();
+
+    return accesses.filter((access) => {
+      const departmentIds = getAccessDepartmentIds(access);
+      const matchesArea = areaFilter === "all" || departmentIds.includes(areaFilter);
+      const matchesSearch =
+        !query ||
+        [
+          access.name,
+          access.username,
+          access.email,
+          access.link,
+          access.host,
+          access.appName,
+          access.networkName,
+          access.notes,
+        ]
+          .filter(Boolean)
+          .some((value) => value!.toLowerCase().includes(query));
+
+      return matchesArea && matchesSearch;
+    });
+  }, [accesses, areaFilter, search]);
 
   if (currentUser?.role === "pending") {
     return (
@@ -50,7 +105,7 @@ function DepartmentsPage() {
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
           {visibleDepartments.map((dep) => {
             const Icon = departmentIcons[dep.iconKey] ?? KeyRound;
-            const count = accesses.filter((a) => a.departmentId === dep.id).length;
+            const count = accesses.filter((a) => getAccessDepartmentIds(a).includes(dep.id)).length;
             return (
               <Link
                 key={dep.id}
@@ -71,6 +126,83 @@ function DepartmentsPage() {
             );
           })}
         </div>
+      )}
+
+      {isCeo && (
+        <section className="space-y-4">
+          <div className="flex flex-wrap items-end justify-between gap-3">
+            <div>
+              <h2 className="font-display text-xl font-semibold">Acessos em lista</h2>
+              <p className="text-sm text-muted-foreground">
+                Pesquise pelo acesso ou filtre pela area vinculada.
+              </p>
+            </div>
+            <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
+              <Button
+                onClick={() => {
+                  setEditing(null);
+                  setFormOpen(true);
+                }}
+              >
+                <Plus /> Novo acesso
+              </Button>
+              <div className="relative sm:w-80">
+                <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  className="pl-9"
+                  value={search}
+                  onChange={(event) => setSearch(event.target.value)}
+                  placeholder="Pesquisar acesso"
+                />
+              </div>
+              <Select value={areaFilter} onValueChange={setAreaFilter}>
+                <SelectTrigger className="sm:w-56">
+                  <SelectValue placeholder="Filtrar por area" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todas as areas</SelectItem>
+                  {departments.map((department) => (
+                    <SelectItem key={department.id} value={department.id}>
+                      {department.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          {filteredAccesses.length === 0 ? (
+            <div className="rounded-2xl border border-border bg-card p-10 text-center text-sm text-muted-foreground">
+              Nenhum acesso encontrado para este filtro.
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+              {filteredAccesses.map((access) => (
+                <AccessCard
+                  key={access.id}
+                  access={access}
+                  departments={departments}
+                  canManage={isAdmin}
+                  onEdit={(access) => {
+                    setEditing(access);
+                    setFormOpen(true);
+                  }}
+                  onDelete={deleteAccess}
+                />
+              ))}
+            </div>
+          )}
+
+          <AccessForm
+            open={formOpen}
+            onOpenChange={setFormOpen}
+            departmentId={departments[0]?.id ?? "outros"}
+            departments={departments}
+            allowMultiDepartment
+            initial={editing}
+            onSave={saveAccess}
+          />
+        </section>
       )}
     </div>
   );
