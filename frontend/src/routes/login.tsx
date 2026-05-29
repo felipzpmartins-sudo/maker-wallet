@@ -27,10 +27,10 @@ function LoginPage() {
     if (currentUser) navigate({ to: "/departments" });
   }, [currentUser, navigate]);
 
-  const handleSubmit = (e: FormEvent) => {
+  const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     setError("");
-    const res = login(email, password);
+    const res = await login(email, password);
     if (!res.ok) {
       setError(res.error ?? "Não foi possível entrar.");
       return;

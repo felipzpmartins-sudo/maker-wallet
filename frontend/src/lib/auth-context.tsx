@@ -9,6 +9,7 @@ import {
   type AccessEntry,
   type RenewalService,
 } from "./mock-data";
+import { ApiError, apiRequest } from "./api";
 
 interface AuthContextValue {
   currentUser: AppUser | null;
@@ -16,8 +17,13 @@ interface AuthContextValue {
   departments: Department[];
   accesses: AccessEntry[];
   renewalServices: RenewalService[];
-  login: (email: string, password: string) => { ok: boolean; error?: string };
-  register: (name: string, email: string, password: string) => { ok: boolean; error?: string };
+  login: (email: string, password: string) => Promise<{ ok: boolean; error?: string }>;
+  register: (
+    name: string,
+    email: string,
+    password: string,
+    invite?: string,
+  ) => Promise<{ ok: boolean; error?: string }>;
   logout: () => void;
   // admin actions
   updateUser: (id: string, patch: Partial<AppUser>) => void;
@@ -53,7 +59,40 @@ const storageKeys = {
   renewalServices: "maker-wallet:renewal-services",
   passwords: "maker-wallet:passwords",
   currentUser: "maker-wallet:current-user",
+  token: "maker-wallet:token",
 };
+
+interface ApiUser {
+  id: string;
+  name: string;
+  email: string;
+  role: "ADMIN" | "USER" | "RESTRICTED";
+  mfaEnabled?: boolean;
+}
+
+interface LoginResponse {
+  token: string;
+  user: ApiUser;
+}
+
+function mapApiUser(user: ApiUser): AppUser {
+  return {
+    id: user.id,
+    name: user.name,
+    email: user.email,
+    role: user.role === "ADMIN" ? "ceo" : user.role === "RESTRICTED" ? "pending" : "user",
+    allowedDepartments: user.role === "ADMIN" ? mockDepartments.map((department) => department.id) : [],
+    totalAccess: user.role === "ADMIN",
+    canManagePermissions: user.role === "ADMIN",
+    mfaEnabled: user.mfaEnabled,
+  };
+}
+
+function mapRoleToApi(role: AppUser["role"]) {
+  if (role === "ceo" || role === "admin") return "ADMIN";
+  if (role === "pending") return "RESTRICTED";
+  return "USER";
+}
 
 function loadStored<T>(key: string, fallback: T) {
   if (typeof window === "undefined") return fallback;
@@ -88,6 +127,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [currentUser, setCurrentUser] = useState<AppUser | null>(() =>
     loadStored(storageKeys.currentUser, null),
   );
+  const [token, setToken] = useState<string | null>(() => loadStored(storageKeys.token, null));
 
   useEffect(() => storeValue(storageKeys.users, users), [users]);
   useEffect(() => storeValue(storageKeys.departments, departments), [departments]);
@@ -95,21 +135,60 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => storeValue(storageKeys.renewalServices, renewalServices), [renewalServices]);
   useEffect(() => storeValue(storageKeys.passwords, passwords), [passwords]);
   useEffect(() => storeValue(storageKeys.currentUser, currentUser), [currentUser]);
+  useEffect(() => storeValue(storageKeys.token, token), [token]);
+
+  const syncUsersFromApi = useCallback(async (authToken: string) => {
+    const apiUsers = await apiRequest<ApiUser[]>("/users", { token: authToken });
+    setUsers(apiUsers.map(mapApiUser));
+  }, []);
 
   const login = useCallback(
-    (email: string, password: string) => {
+    async (email: string, password: string) => {
+      try {
+        const result = await apiRequest<LoginResponse>("/auth/login", {
+          method: "POST",
+          body: JSON.stringify({ email, password }),
+        });
+        const mappedUser = mapApiUser(result.user);
+        setToken(result.token);
+        setCurrentUser(mappedUser);
+        if (mappedUser.role === "ceo" || mappedUser.role === "admin") {
+          await syncUsersFromApi(result.token);
+        }
+        return { ok: true };
+      } catch (error) {
+        if (error instanceof ApiError) {
+          return { ok: false, error: error.message };
+        }
+        // Keep local development usable when the backend is not running.
+      }
+
       const user = users.find((u) => u.email.toLowerCase() === email.toLowerCase());
       if (!user) return { ok: false, error: "Usuário não encontrado." };
       if (passwords[email.toLowerCase()] !== password)
         return { ok: false, error: "Senha incorreta." };
+      setToken(null);
       setCurrentUser(user);
       return { ok: true };
     },
-    [users, passwords],
+    [users, passwords, syncUsersFromApi],
   );
 
   const register = useCallback(
-    (name: string, email: string, password: string) => {
+    async (name: string, email: string, password: string, invite?: string) => {
+      try {
+        await apiRequest<ApiUser>("/auth/register", {
+          method: "POST",
+          body: JSON.stringify({ name, email, password, invite }),
+        });
+        return { ok: true };
+      } catch (error) {
+        if (error instanceof ApiError) {
+          return { ok: false, error: error.message };
+        }
+        // Local fallback only; production writes to the API above.
+      }
+
       const exists = users.some((u) => u.email.toLowerCase() === email.toLowerCase());
       if (exists) return { ok: false, error: "Já existe uma conta com este e-mail." };
       const newUser: AppUser = {
@@ -126,24 +205,48 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     [users],
   );
 
-  const logout = useCallback(() => setCurrentUser(null), []);
+  const logout = useCallback(() => {
+    setCurrentUser(null);
+    setToken(null);
+  }, []);
 
   const updateUser = useCallback((id: string, patch: Partial<AppUser>) => {
+    if (token) {
+      void apiRequest<ApiUser>(`/users/${id}`, {
+        method: "PATCH",
+        token,
+        body: JSON.stringify({
+          name: patch.name,
+          email: patch.email,
+          role: patch.role ? mapRoleToApi(patch.role) : undefined,
+        }),
+      }).then(() => syncUsersFromApi(token));
+    }
     setUsers((prev) => prev.map((u) => (u.id === id ? { ...u, ...patch } : u)));
     setCurrentUser((cur) => (cur && cur.id === id ? { ...cur, ...patch } : cur));
-  }, []);
+  }, [syncUsersFromApi, token]);
 
   const deleteUser = useCallback((id: string) => {
+    if (token) {
+      void apiRequest<null>(`/users/${id}`, { method: "DELETE", token }).then(() =>
+        syncUsersFromApi(token),
+      );
+    }
     setUsers((prev) => prev.filter((user) => user.id !== id));
-  }, []);
+  }, [syncUsersFromApi, token]);
 
   const resetUserMfa = useCallback((id: string) => {
+    if (token) {
+      void apiRequest<ApiUser>(`/users/${id}/reset-mfa`, { method: "POST", token }).then(() =>
+        syncUsersFromApi(token),
+      );
+    }
     setUsers((prev) =>
       prev.map((user) =>
         user.id === id ? { ...user, mfaEnabled: false, mfaSecret: undefined } : user,
       ),
     );
-  }, []);
+  }, [syncUsersFromApi, token]);
 
   const addDepartment = useCallback((dep: Department) => {
     setDepartments((prev) => [...prev, dep]);
@@ -181,6 +284,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const isCeo = currentUser?.role === "ceo";
   const isAdmin = isCeo || currentUser?.role === "admin";
   const canManagePermissions = isCeo || !!currentUser?.canManagePermissions;
+
+  useEffect(() => {
+    if (!token || !isAdmin) return;
+    void syncUsersFromApi(token);
+  }, [isAdmin, syncUsersFromApi, token]);
 
   const canAccessDepartment = useCallback(
     (departmentId: string) => {

@@ -1,4 +1,6 @@
 import bcrypt from "bcryptjs";
+import { UserRole } from "@prisma/client";
+import { env } from "../config/env";
 import { prisma } from "../prisma/client";
 import { AppError } from "../utils/errors";
 import { signToken } from "../utils/jwt";
@@ -29,6 +31,33 @@ export async function login(email: string, password: string) {
     token,
     user: sanitizeUser(user)
   };
+}
+
+export async function register(name: string, email: string, password: string, invite: string) {
+  if (invite !== env.REGISTRATION_INVITE_CODE) {
+    throw new AppError(403, "Invalid invite code");
+  }
+
+  const normalizedEmail = email.toLowerCase();
+  const existingUser = await prisma.user.findUnique({
+    where: { email: normalizedEmail }
+  });
+
+  if (existingUser) {
+    throw new AppError(409, "Email already in use");
+  }
+
+  const passwordHash = await bcrypt.hash(password, 12);
+  const user = await prisma.user.create({
+    data: {
+      name,
+      email: normalizedEmail,
+      passwordHash,
+      role: UserRole.RESTRICTED
+    }
+  });
+
+  return sanitizeUser(user);
 }
 
 export async function me(userId: string) {

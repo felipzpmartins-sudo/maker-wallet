@@ -32,7 +32,7 @@ function RegisterPage() {
   const [done, setDone] = useState(false);
   const inviteIsValid = isValidRegistrationInvite(invite);
 
-  const handleSubmit = (e: FormEvent) => {
+  const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     setError("");
     if (password.length < 6) {
@@ -43,7 +43,7 @@ function RegisterPage() {
       setError("As senhas não coincidem.");
       return;
     }
-    const res = register(name.trim(), email.trim(), password);
+    const res = await register(name.trim(), email.trim(), password, invite);
     if (!res.ok) {
       setError(res.error ?? "Não foi possível criar a conta.");
       return;

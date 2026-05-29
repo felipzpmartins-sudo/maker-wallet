@@ -7,6 +7,16 @@ export async function login(request: Request, response: Response) {
   return response.json(success(result, "Login successful"));
 }
 
+export async function register(request: Request, response: Response) {
+  const result = await authService.register(
+    request.body.name,
+    request.body.email,
+    request.body.password,
+    request.body.invite
+  );
+  return response.status(201).json(success(result, "Registration created"));
+}
+
 export async function me(request: Request, response: Response) {
   const result = await authService.me(request.user!.id);
   return response.json(success(result));

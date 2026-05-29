@@ -17,7 +17,7 @@ async function main() {
     }
   });
 
-  console.log("Seed completed. Default admin: admin@maker.com / Admin@123456");
+  console.log("Seed completed. Default admin ensured.");
 }
 
 main()
