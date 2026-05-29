@@ -96,9 +96,6 @@ function LoginPage() {
           Acesso restrito aos colaboradores autorizados da Maker
         </div>
 
-        <p className="mt-4 text-center text-xs text-muted-foreground/70">
-          Demo: admin@maker.com / Admin@123456
-        </p>
       </div>
     </div>
   );
