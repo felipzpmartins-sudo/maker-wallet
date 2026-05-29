@@ -1,9 +1,9 @@
 import { useMemo, useState } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { ArrowRight, KeyRound, Plus, Search, ShieldX } from "lucide-react";
-import { ConfidentialBadge } from "@/components/ConfidentialBadge";
 import { AccessCard } from "@/components/AccessCard";
 import { AccessForm } from "@/components/AccessForm";
+import { ConfidentialBadge } from "@/components/ConfidentialBadge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -70,10 +70,10 @@ function DepartmentsPage() {
     return (
       <div className="mx-auto flex max-w-lg flex-col items-center gap-4 rounded-2xl border border-border bg-card p-10 text-center">
         <ShieldX className="h-12 w-12 text-warning" />
-        <h2 className="font-display text-xl font-semibold">Acesso aguardando liberação</h2>
+        <h2 className="font-display text-xl font-semibold">Acesso aguardando liberacao</h2>
         <p className="text-sm text-muted-foreground">
-          Sua conta foi criada e está aguardando liberação de acesso por um administrador. Assim que
-          for aprovado, seus departamentos aparecerão aqui.
+          Sua conta foi criada e esta aguardando liberacao de acesso por um administrador. Assim que
+          for aprovado, seus departamentos aparecerao aqui.
         </p>
       </div>
     );
@@ -81,31 +81,36 @@ function DepartmentsPage() {
 
   return (
     <div className="space-y-8">
-      <div className="flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <p className="text-sm text-muted-foreground">
-            Bem-vindo, <span className="text-foreground">{currentUser?.name}</span>
-            {currentUser && (
-              <>
-                {" "}
-                · <span className="text-primary">{ROLE_LABELS[currentUser.role]}</span>
-              </>
-            )}
-          </p>
-          <h1 className="mt-1 font-display text-2xl font-semibold">Departamentos</h1>
+      {!isCeo && (
+        <div className="flex flex-wrap items-end justify-between gap-4">
+          <div>
+            <p className="text-sm text-muted-foreground">
+              Bem-vindo, <span className="text-foreground">{currentUser?.name}</span>
+              {currentUser && (
+                <>
+                  {" "}
+                  - <span className="text-primary">{ROLE_LABELS[currentUser.role]}</span>
+                </>
+              )}
+            </p>
+            <h1 className="mt-1 font-display text-2xl font-semibold">Departamentos</h1>
+          </div>
+          <ConfidentialBadge />
         </div>
-        <ConfidentialBadge />
-      </div>
+      )}
 
-      {visibleDepartments.length === 0 ? (
+      {!isCeo && visibleDepartments.length === 0 ? (
         <div className="rounded-2xl border border-border bg-card p-10 text-center text-sm text-muted-foreground">
-          Nenhum departamento liberado para você.
+          Nenhum departamento liberado para voce.
         </div>
-      ) : (
+      ) : !isCeo ? (
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
           {visibleDepartments.map((dep) => {
             const Icon = departmentIcons[dep.iconKey] ?? KeyRound;
-            const count = accesses.filter((a) => getAccessDepartmentIds(a).includes(dep.id)).length;
+            const count = accesses.filter((access) =>
+              getAccessDepartmentIds(access).includes(dep.id),
+            ).length;
+
             return (
               <Link
                 key={dep.id}
@@ -126,13 +131,13 @@ function DepartmentsPage() {
             );
           })}
         </div>
-      )}
+      ) : null}
 
       {isCeo && (
         <section className="space-y-4">
           <div className="flex flex-wrap items-end justify-between gap-3">
             <div>
-              <h2 className="font-display text-xl font-semibold">Acessos em lista</h2>
+              <h1 className="font-display text-2xl font-semibold">Acessos em lista</h1>
               <p className="text-sm text-muted-foreground">
                 Pesquise pelo acesso ou filtre pela area vinculada.
               </p>
@@ -183,8 +188,8 @@ function DepartmentsPage() {
                   access={access}
                   departments={departments}
                   canManage={isAdmin}
-                  onEdit={(access) => {
-                    setEditing(access);
+                  onEdit={(selectedAccess) => {
+                    setEditing(selectedAccess);
                     setFormOpen(true);
                   }}
                   onDelete={deleteAccess}
