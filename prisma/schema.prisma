@@ -1,0 +1,141 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  ADMIN
+  USER
+  RESTRICTED
+}
+
+enum AccessType {
+  SSH
+  FTP
+  EMAIL
+  PLATFORM
+  KEYSTORE
+}
+
+enum RenewalServiceType {
+  EMAIL
+  DOMAIN
+  HOSTING
+  DEVELOPER_ACCOUNT
+  SOFTWARE
+  CERTIFICATE
+  OTHER
+}
+
+enum RenewalInterval {
+  MONTHLY
+  QUARTERLY
+  SEMIANNUAL
+  YEARLY
+  BIENNIAL
+  CUSTOM
+}
+
+model User {
+  id          String             @id @default(uuid())
+  name        String
+  email       String             @unique
+  passwordHash String
+  role        UserRole           @default(USER)
+  mfaSecret   String?
+  mfaEnabled  Boolean            @default(false)
+  createdAt   DateTime           @default(now())
+  updatedAt   DateTime           @updatedAt
+
+  accessItems AccessItem[]       @relation("AccessCreatedBy")
+  renewalServices RenewalService[] @relation("RenewalServiceCreatedBy")
+  permissions AccessPermission[]
+  auditLogs   AuditLog[]
+}
+
+model AccessItem {
+  id               String             @id @default(uuid())
+  type             AccessType
+  title            String
+  description      String?
+  host             String?
+  port             Int?
+  username         String?
+  email            String?
+  encryptedPassword String?
+  loginUrl         String?
+  observation      String?
+  appName          String?
+  keystoreFilePath String?
+  createdById      String
+  createdAt        DateTime           @default(now())
+  updatedAt        DateTime           @updatedAt
+
+  createdBy        User               @relation("AccessCreatedBy", fields: [createdById], references: [id])
+  permissions      AccessPermission[]
+  renewalServices  RenewalService[]
+
+  @@index([type])
+  @@index([createdById])
+}
+
+model RenewalService {
+  id              String             @id @default(uuid())
+  name            String
+  type            RenewalServiceType
+  provider        String?
+  description     String?
+  renewalUrl      String?
+  amount          Decimal?           @db.Decimal(10, 2)
+  currency        String             @default("BRL")
+  renewalInterval RenewalInterval    @default(YEARLY)
+  expiresAt       DateTime
+  notifyDaysBefore Int               @default(30)
+  notes           String?
+  isActive        Boolean            @default(true)
+  accessItemId    String?
+  createdById     String
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @updatedAt
+
+  accessItem      AccessItem?        @relation(fields: [accessItemId], references: [id], onDelete: SetNull)
+  createdBy       User               @relation("RenewalServiceCreatedBy", fields: [createdById], references: [id])
+
+  @@index([expiresAt])
+  @@index([type])
+  @@index([accessItemId])
+  @@index([createdById])
+}
+
+model AccessPermission {
+  id           String     @id @default(uuid())
+  userId       String
+  accessItemId String
+  canView      Boolean    @default(false)
+  canEdit      Boolean    @default(false)
+  canDelete    Boolean    @default(false)
+
+  user         User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  accessItem   AccessItem @relation(fields: [accessItemId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, accessItemId])
+  @@index([accessItemId])
+}
+
+model AuditLog {
+  id           String      @id @default(uuid())
+  userId       String
+  action       String
+  accessItemId String?
+  ipAddress    String?
+  createdAt    DateTime    @default(now())
+
+  user         User        @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@index([accessItemId])
+}
