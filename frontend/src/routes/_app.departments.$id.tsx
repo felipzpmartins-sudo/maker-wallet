@@ -91,7 +91,7 @@ function DepartmentDetailPage() {
           Nenhum acesso cadastrado neste departamento.
         </div>
       ) : (
-        <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+        <div className="grid grid-cols-1 gap-4">
           {deptAccesses.map((access) => (
             <AccessCard
               key={access.id}
