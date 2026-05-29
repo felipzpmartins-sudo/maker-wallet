@@ -27,7 +27,8 @@ interface AuthContextValue {
   logout: () => void;
   // admin actions
   updateUser: (id: string, patch: Partial<AppUser>) => void;
-  addDepartment: (dep: Department) => void;
+  addDepartment: (dep: Department) => Promise<void>;
+  deleteDepartment: (id: string) => Promise<void>;
   saveAccess: (access: AccessEntry) => void;
   deleteAccess: (id: string) => void;
   saveRenewalService: (service: RenewalService) => void;
@@ -77,6 +78,8 @@ interface LoginResponse {
   token: string;
   user: ApiUser;
 }
+
+type ApiDepartment = Department;
 
 function mapApiUser(user: ApiUser): AppUser {
   return {
@@ -152,6 +155,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUsers(apiUsers.map(mapApiUser));
   }, []);
 
+  const syncDepartmentsFromApi = useCallback(async (authToken: string) => {
+    const apiDepartments = await apiRequest<ApiDepartment[]>("/departments", { token: authToken });
+    setDepartments(apiDepartments);
+  }, []);
+
   const login = useCallback(
     async (email: string, password: string) => {
       try {
@@ -162,6 +170,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const mappedUser = mapApiUser(result.user);
         setToken(result.token);
         setCurrentUser(mappedUser);
+        await syncDepartmentsFromApi(result.token);
         if (mappedUser.role === "ceo" || mappedUser.role === "admin") {
           await syncUsersFromApi(result.token);
         }
@@ -181,7 +190,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setCurrentUser(user);
       return { ok: true };
     },
-    [users, passwords, syncUsersFromApi],
+    [users, passwords, syncDepartmentsFromApi, syncUsersFromApi],
   );
 
   const register = useCallback(
@@ -262,9 +271,36 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     );
   }, [syncUsersFromApi, token]);
 
-  const addDepartment = useCallback((dep: Department) => {
+  const addDepartment = useCallback(async (dep: Department) => {
+    if (token) {
+      await apiRequest<ApiDepartment>("/departments", {
+        method: "POST",
+        token,
+        body: JSON.stringify(dep),
+      });
+      await syncDepartmentsFromApi(token);
+      return;
+    }
     setDepartments((prev) => [...prev, dep]);
-  }, []);
+  }, [syncDepartmentsFromApi, token]);
+
+  const deleteDepartment = useCallback(async (id: string) => {
+    if (token) {
+      await apiRequest<null>(`/departments/${id}`, { method: "DELETE", token });
+      await syncDepartmentsFromApi(token);
+      await syncUsersFromApi(token);
+      setAccesses((prev) => prev.filter((access) => access.departmentId !== id));
+      return;
+    }
+    setDepartments((prev) => prev.filter((department) => department.id !== id));
+    setUsers((prev) =>
+      prev.map((user) => ({
+        ...user,
+        allowedDepartments: user.allowedDepartments.filter((departmentId) => departmentId !== id),
+      })),
+    );
+    setAccesses((prev) => prev.filter((access) => access.departmentId !== id));
+  }, [syncDepartmentsFromApi, syncUsersFromApi, token]);
 
   const saveAccess = useCallback((access: AccessEntry) => {
     setAccesses((prev) => {
@@ -301,12 +337,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (!token || !isAdmin) return;
+    void syncDepartmentsFromApi(token);
     void syncUsersFromApi(token);
     const interval = window.setInterval(() => {
+      void syncDepartmentsFromApi(token);
       void syncUsersFromApi(token);
     }, 10000);
     return () => window.clearInterval(interval);
-  }, [isAdmin, syncUsersFromApi, token]);
+  }, [isAdmin, syncDepartmentsFromApi, syncUsersFromApi, token]);
 
   const canAccessDepartment = useCallback(
     (departmentId: string) => {
@@ -333,6 +371,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         logout,
         updateUser,
         addDepartment,
+        deleteDepartment,
         saveAccess,
         deleteAccess,
         saveRenewalService,

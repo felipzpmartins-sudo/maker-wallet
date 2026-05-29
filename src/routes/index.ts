@@ -4,6 +4,7 @@ import { userRoutes } from "./userRoutes";
 import { accessRoutes } from "./accessRoutes";
 import { uploadRoutes } from "./uploadRoutes";
 import { renewalServiceRoutes } from "./renewalServiceRoutes";
+import { departmentRoutes } from "./departmentRoutes";
 
 export const routes = Router();
 
@@ -16,6 +17,7 @@ routes.get("/health", (_request, response) => {
 
 routes.use("/auth", authRoutes);
 routes.use("/users", userRoutes);
+routes.use("/departments", departmentRoutes);
 routes.use("/access", accessRoutes);
 routes.use("/renewal-services", renewalServiceRoutes);
 routes.use("/upload", uploadRoutes);

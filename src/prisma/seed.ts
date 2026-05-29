@@ -22,6 +22,27 @@ async function main() {
     }
   });
 
+  const departments = [
+    ["financeiro", "Financeiro", "financeiro", "Contas bancarias, ERPs e sistemas fiscais"],
+    ["marketing", "Marketing", "marketing", "Redes sociais, trafego pago e ferramentas criativas"],
+    ["video", "Video", "video", "Streaming, edicao e bancos de midia"],
+    ["expansao", "Expansao", "expansao", "Contas estrategicas e plataformas de crescimento"],
+    ["suporte", "Suporte", "suporte", "Atendimento, help desk e canais de relacionamento"],
+    ["ecommerce", "E-commerce", "ecommerce", "Marketplaces, lojas virtuais e pagamentos"],
+    ["wifi", "Wi-Fi", "wifi", "Redes internas, roteadores e acessos de convidados"],
+    ["outros", "Outros", "outros", "Acessos que nao se encaixam nos demais setores"]
+  ] as const;
+
+  await Promise.all(
+    departments.map(([id, name, iconKey, description]) =>
+      prisma.department.upsert({
+        where: { id },
+        update: {},
+        create: { id, name, iconKey, description }
+      })
+    )
+  );
+
   console.log("Seed completed. Default admin ensured.");
 }
 

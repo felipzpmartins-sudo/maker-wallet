@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { toast } from "sonner";
-import { Plus, Boxes, Copy } from "lucide-react";
+import { Plus, Boxes, Copy, Trash2 } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { useAdminGuard } from "@/hooks/use-admin-guard";
 import { departmentIcons, ROLE_LABELS, type Department } from "@/lib/mock-data";
@@ -10,6 +10,17 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ConfidentialBadge } from "@/components/ConfidentialBadge";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 
 export const Route = createFileRoute("/_app/settings")({
   component: SettingsPage,
@@ -24,8 +35,8 @@ const slugify = (s: string) =>
     .replace(/(^-|-$)/g, "");
 
 function SettingsPage() {
-  const allowed = useAdminGuard("ceo");
-  const { departments, addDepartment } = useAuth();
+  const allowed = useAdminGuard("admin");
+  const { departments, addDepartment, deleteDepartment } = useAuth();
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [inviteUrl, setInviteUrl] = useState("");
@@ -36,7 +47,7 @@ function SettingsPage() {
 
   if (!allowed) return null;
 
-  const create = () => {
+  const create = async () => {
     if (!name.trim()) return;
     const id = slugify(name) || `dep-${Date.now()}`;
     if (departments.some((d) => d.id === id)) {
@@ -49,10 +60,14 @@ function SettingsPage() {
       iconKey: "outros",
       description: description.trim() || "Departamento personalizado",
     };
-    addDepartment(dep);
-    setName("");
-    setDescription("");
-    toast.success("Departamento criado", { description: dep.name });
+    try {
+      await addDepartment(dep);
+      setName("");
+      setDescription("");
+      toast.success("Departamento criado", { description: dep.name });
+    } catch {
+      toast.error("Nao foi possivel criar o departamento");
+    }
   };
 
   const copyInvite = async () => {
@@ -124,7 +139,43 @@ function SettingsPage() {
                 className="flex items-center gap-3 rounded-lg border border-border bg-background/40 px-3 py-2.5"
               >
                 <Icon className="h-4 w-4 text-primary" />
-                <span className="truncate text-sm">{d.name}</span>
+                <span className="min-w-0 flex-1 truncate text-sm">{d.name}</span>
+                <AlertDialog>
+                  <AlertDialogTrigger asChild>
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      className="h-8 w-8 shrink-0 text-muted-foreground hover:text-destructive"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>Excluir departamento?</AlertDialogTitle>
+                      <AlertDialogDescription>
+                        O departamento "{d.name}" sera removido das permissoes dos usuarios e da
+                        lista de departamentos. Esta acao nao pode ser desfeita.
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                      <AlertDialogAction
+                        onClick={async () => {
+                          try {
+                            await deleteDepartment(d.id);
+                            toast.success("Departamento excluido", { description: d.name });
+                          } catch {
+                            toast.error("Nao foi possivel excluir o departamento");
+                          }
+                        }}
+                        className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                      >
+                        Excluir departamento
+                      </AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
               </div>
             );
           })}
