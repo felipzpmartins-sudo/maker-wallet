@@ -8,12 +8,17 @@ async function main() {
 
   await prisma.user.upsert({
     where: { email },
-    update: {},
+    update: {
+      totalAccess: true,
+      canManagePermissions: true
+    },
     create: {
       name: "Maker Admin",
       email,
       passwordHash,
-      role: UserRole.ADMIN
+      role: UserRole.ADMIN,
+      totalAccess: true,
+      canManagePermissions: true
     }
   });
 

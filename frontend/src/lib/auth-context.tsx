@@ -67,6 +67,9 @@ interface ApiUser {
   name: string;
   email: string;
   role: "ADMIN" | "USER" | "RESTRICTED";
+  allowedDepartments?: string[];
+  totalAccess?: boolean;
+  canManagePermissions?: boolean;
   mfaEnabled?: boolean;
 }
 
@@ -80,10 +83,17 @@ function mapApiUser(user: ApiUser): AppUser {
     id: user.id,
     name: user.name,
     email: user.email,
-    role: user.role === "ADMIN" ? "ceo" : user.role === "RESTRICTED" ? "pending" : "user",
-    allowedDepartments: user.role === "ADMIN" ? mockDepartments.map((department) => department.id) : [],
-    totalAccess: user.role === "ADMIN",
-    canManagePermissions: user.role === "ADMIN",
+    role:
+      user.role === "ADMIN"
+        ? user.totalAccess
+          ? "ceo"
+          : "admin"
+        : user.role === "RESTRICTED"
+          ? "pending"
+          : "user",
+    allowedDepartments: user.allowedDepartments ?? [],
+    totalAccess: user.totalAccess,
+    canManagePermissions: user.canManagePermissions,
     mfaEnabled: user.mfaEnabled,
   };
 }
@@ -219,6 +229,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           name: patch.name,
           email: patch.email,
           role: patch.role ? mapRoleToApi(patch.role) : undefined,
+          allowedDepartments: patch.allowedDepartments,
+          totalAccess: patch.role === "ceo" ? true : patch.totalAccess,
+          canManagePermissions:
+            patch.role === "ceo" ? true : patch.canManagePermissions,
         }),
       }).then(() => syncUsersFromApi(token));
     }
@@ -288,6 +302,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (!token || !isAdmin) return;
     void syncUsersFromApi(token);
+    const interval = window.setInterval(() => {
+      void syncUsersFromApi(token);
+    }, 10000);
+    return () => window.clearInterval(interval);
   }, [isAdmin, syncUsersFromApi, token]);
 
   const canAccessDepartment = useCallback(

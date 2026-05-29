@@ -10,6 +10,9 @@ export async function createUser(data: {
   email: string;
   password: string;
   role: "ADMIN" | "USER" | "RESTRICTED";
+  allowedDepartments?: string[];
+  totalAccess?: boolean;
+  canManagePermissions?: boolean;
 }) {
   const existingUser = await prisma.user.findUnique({
     where: { email: data.email }
@@ -26,7 +29,10 @@ export async function createUser(data: {
       name: data.name,
       email: data.email,
       passwordHash,
-      role: data.role
+      role: data.role,
+      allowedDepartments: data.allowedDepartments ?? [],
+      totalAccess: data.totalAccess ?? false,
+      canManagePermissions: data.canManagePermissions ?? false
     }
   });
 
@@ -60,12 +66,18 @@ export async function updateUser(
     email: string;
     password: string;
     role: "ADMIN" | "USER" | "RESTRICTED";
+    allowedDepartments: string[];
+    totalAccess: boolean;
+    canManagePermissions: boolean;
   }>
 ) {
   const updateData: Prisma.UserUpdateInput = {
     name: data.name,
     email: data.email,
-    role: data.role
+    role: data.role,
+    allowedDepartments: data.allowedDepartments,
+    totalAccess: data.totalAccess,
+    canManagePermissions: data.canManagePermissions
   };
 
   if (data.password) {

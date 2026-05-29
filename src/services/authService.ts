@@ -53,7 +53,10 @@ export async function register(name: string, email: string, password: string, in
       name,
       email: normalizedEmail,
       passwordHash,
-      role: UserRole.RESTRICTED
+      role: UserRole.RESTRICTED,
+      allowedDepartments: [],
+      totalAccess: false,
+      canManagePermissions: false
     }
   });
 

@@ -107,7 +107,11 @@ function UsersPage() {
                       onValueChange={(v) =>
                         updateUser(u.id, {
                           role: v as UserRole,
-                          canManagePermissions: v === "admin" ? u.canManagePermissions : false,
+                          totalAccess: v === "ceo" ? true : false,
+                          allowedDepartments:
+                            v === "ceo" ? [] : v === "pending" ? [] : u.allowedDepartments,
+                          canManagePermissions:
+                            v === "ceo" ? true : v === "admin" ? u.canManagePermissions : false,
                         })
                       }
                     >
