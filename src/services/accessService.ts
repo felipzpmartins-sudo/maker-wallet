@@ -78,6 +78,10 @@ export async function createAccess(data: AccessInput, user: Express.User, ipAddr
 }
 
 export async function listAccess(query: AccessQuery, user: Express.User) {
+  if (user.role === UserRole.ADMIN && !query.userId) {
+    return listAdminAccess(query);
+  }
+
   const andFilters: Prisma.AccessItemWhereInput[] = [];
 
   if (query.type) {
@@ -149,6 +153,80 @@ export async function listAccess(query: AccessQuery, user: Express.User) {
       limit: query.limit,
       total,
       pages: Math.ceil(total / query.limit)
+    }
+  };
+}
+
+async function listAdminAccess(query: AccessQuery) {
+  const page = query.page;
+  const limit = query.limit;
+  const offset = (page - 1) * limit;
+  const filters: Prisma.Sql[] = [];
+
+  if (query.type) {
+    filters.push(Prisma.sql`"type" = ${query.type}::"AccessType"`);
+  }
+
+  if (query.createdBy) {
+    filters.push(Prisma.sql`"createdById" = ${query.createdBy}`);
+  }
+
+  if (query.search) {
+    const search = `%${query.search}%`;
+    filters.push(Prisma.sql`(
+      "title" ILIKE ${search}
+      OR "description" ILIKE ${search}
+      OR "host" ILIKE ${search}
+      OR "username" ILIKE ${search}
+      OR "email" ILIKE ${search}
+      OR "appName" ILIKE ${search}
+    )`);
+  }
+
+  const where = filters.length
+    ? Prisma.sql`WHERE ${Prisma.join(filters, " AND ")}`
+    : Prisma.empty;
+
+  const items = await prisma.$queryRaw<Prisma.AccessItemGetPayload<Record<string, never>>[]>`
+    SELECT
+      "id",
+      "type",
+      "title",
+      "description",
+      "host",
+      "port",
+      "username",
+      "email",
+      "encryptedPassword",
+      "loginUrl",
+      "observation",
+      "appName",
+      "keystoreFilePath",
+      "departmentIds",
+      "createdById",
+      "createdAt",
+      "updatedAt"
+    FROM "AccessItem"
+    ${where}
+    ORDER BY "createdAt" DESC
+    LIMIT ${limit}
+    OFFSET ${offset}
+  `;
+
+  const totalRows = await prisma.$queryRaw<{ count: bigint }[]>`
+    SELECT COUNT(*)::bigint AS count
+    FROM "AccessItem"
+    ${where}
+  `;
+  const total = Number(totalRows[0]?.count ?? 0);
+
+  return {
+    items: items.map(sanitizeAccessItem),
+    pagination: {
+      page,
+      limit,
+      total,
+      pages: Math.ceil(total / limit)
     }
   };
 }
