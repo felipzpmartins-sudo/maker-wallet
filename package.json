@@ -6,9 +6,10 @@
   "scripts": {
     "dev": "tsx watch src/server.ts",
     "build": "tsc",
-    "start": "node dist/prisma/seed.js && node dist/server.js",
+    "start": "npm run prisma:migrate:deploy && node dist/prisma/seed.js && node dist/server.js",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
+    "prisma:migrate:deploy": "prisma migrate deploy",
     "prisma:studio": "prisma studio",
     "seed": "tsx src/prisma/seed.ts",
     "lint": "tsc --noEmit"
@@ -26,6 +27,7 @@
     "helmet": "^8.1.0",
     "jsonwebtoken": "^9.0.2",
     "multer": "^2.1.1",
+    "prisma": "^6.8.2",
     "zod": "^3.25.28"
   },
   "devDependencies": {
@@ -34,7 +36,6 @@
     "@types/jsonwebtoken": "^9.0.9",
     "@types/multer": "^1.4.12",
     "@types/node": "^22.15.21",
-    "prisma": "^6.8.2",
     "tsx": "^4.19.4",
     "typescript": "^5.8.3"
   }
