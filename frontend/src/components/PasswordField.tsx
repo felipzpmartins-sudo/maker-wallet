@@ -13,7 +13,6 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useAuth } from "@/lib/auth-context";
-import { verifyTotpCode } from "@/lib/totp";
 import { isVaultUnlocked, unlockVault } from "@/lib/vault-unlock";
 import { cn } from "@/lib/utils";
 
@@ -81,24 +80,21 @@ export function PasswordField({ accessId, password, label = "Senha", className }
 
     let unlockedPassword = displayPassword;
 
-    if (accessId) {
-      try {
-        unlockedPassword = await revealAccessPassword(accessId, mfaCode);
-        setRevealedPassword(unlockedPassword);
-      } catch {
-        toast.error("Codigo incorreto", {
-          description: "Confira o codigo atual no seu aplicativo autenticador.",
-        });
-        return;
-      }
-    } else {
-      const valid = await verifyTotpCode(currentUser?.mfaSecret, mfaCode);
-      if (!valid) {
-        toast.error("Codigo incorreto", {
-          description: "Confira o codigo atual no seu aplicativo autenticador.",
-        });
-        return;
-      }
+    if (!accessId) {
+      toast.error("Senha indisponivel", {
+        description: "Este acesso precisa estar sincronizado com a nuvem.",
+      });
+      return;
+    }
+
+    try {
+      unlockedPassword = await revealAccessPassword(accessId, mfaCode);
+      setRevealedPassword(unlockedPassword);
+    } catch {
+      toast.error("Codigo incorreto", {
+        description: "Confira o codigo atual no seu aplicativo autenticador.",
+      });
+      return;
     }
 
     setChallengeOpen(false);

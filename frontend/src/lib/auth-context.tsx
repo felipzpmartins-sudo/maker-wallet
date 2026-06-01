@@ -30,6 +30,9 @@ interface AuthContextValue {
   saveAccess: (access: AccessEntry) => Promise<void>;
   deleteAccess: (id: string) => Promise<void>;
   revealAccessPassword: (id: string, mfaCode: string) => Promise<string>;
+  setupMfa: () => Promise<{ secret: string; otpauthUrl: string }>;
+  confirmMfa: (code: string) => Promise<void>;
+  disableMfa: (code: string) => Promise<void>;
   saveRenewalService: (service: RenewalService) => Promise<void>;
   deleteRenewalService: (id: string) => Promise<void>;
   deleteUser: (id: string) => Promise<void>;
@@ -71,6 +74,11 @@ interface ApiUser {
 interface LoginResponse {
   token: string;
   user: ApiUser;
+}
+
+interface MfaSetupResponse {
+  secret: string;
+  otpauthUrl: string;
 }
 
 type ApiDepartment = Department;
@@ -505,6 +513,49 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return result.password;
   }, [token]);
 
+  const isCeo = currentUser?.role === "ceo";
+  const isAdmin = isCeo || currentUser?.role === "admin";
+  const canManagePermissions = isCeo || !!currentUser?.canManagePermissions;
+
+  const setupMfa = useCallback(async () => {
+    if (!token) {
+      throw new Error("Sessao expirada. Faca login novamente.");
+    }
+
+    return apiRequest<MfaSetupResponse>("/auth/mfa/setup", {
+      method: "POST",
+      token,
+    });
+  }, [token]);
+
+  const confirmMfa = useCallback(async (code: string) => {
+    if (!token) {
+      throw new Error("Sessao expirada. Faca login novamente.");
+    }
+
+    await apiRequest<{ mfaEnabled: boolean }>("/auth/mfa/confirm", {
+      method: "POST",
+      token,
+      body: JSON.stringify({ code }),
+    });
+    setCurrentUser((user) => (user ? { ...user, mfaEnabled: true } : user));
+    if (isAdmin) await syncUsersFromApi(token);
+  }, [isAdmin, syncUsersFromApi, token]);
+
+  const disableMfa = useCallback(async (code: string) => {
+    if (!token) {
+      throw new Error("Sessao expirada. Faca login novamente.");
+    }
+
+    await apiRequest<{ mfaEnabled: boolean }>("/auth/mfa/disable", {
+      method: "POST",
+      token,
+      body: JSON.stringify({ code }),
+    });
+    setCurrentUser((user) => (user ? { ...user, mfaEnabled: false } : user));
+    if (isAdmin) await syncUsersFromApi(token);
+  }, [isAdmin, syncUsersFromApi, token]);
+
   const saveRenewalService = useCallback(async (service: RenewalService) => {
     const exists = renewalServices.some((item) => item.id === service.id);
     if (token) {
@@ -527,10 +578,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
     throw new Error("Sessao expirada. Faca login novamente.");
   }, [syncRenewalServicesFromApi, token]);
-
-  const isCeo = currentUser?.role === "ceo";
-  const isAdmin = isCeo || currentUser?.role === "admin";
-  const canManagePermissions = isCeo || !!currentUser?.canManagePermissions;
 
   useEffect(() => {
     if (!token) return;
@@ -583,6 +630,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         saveAccess,
         deleteAccess,
         revealAccessPassword,
+        setupMfa,
+        confirmMfa,
+        disableMfa,
         saveRenewalService,
         deleteRenewalService,
         deleteUser,

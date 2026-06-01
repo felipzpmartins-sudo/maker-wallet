@@ -13,7 +13,6 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/lib/auth-context";
-import { buildTotpUrl, generateMockTotpSecret, verifyTotpCode } from "@/lib/totp";
 import { getVaultUnlockUntil, isVaultUnlocked, lockVault } from "@/lib/vault-unlock";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -31,11 +30,12 @@ type SetupState = {
 };
 
 function SecurityPage() {
-  const { currentUser, updateUser } = useAuth();
+  const { currentUser, setupMfa, confirmMfa, disableMfa } = useAuth();
   const [setup, setSetup] = useState<SetupState | null>(null);
   const [qrDataUrl, setQrDataUrl] = useState("");
   const [code, setCode] = useState("");
   const [disableCode, setDisableCode] = useState("");
+  const [busy, setBusy] = useState(false);
   const [unlockUntil, setUnlockUntil] = useState(0);
   const mfaEnabled = !!currentUser?.mfaEnabled;
 
@@ -70,13 +70,18 @@ function SecurityPage() {
 
   if (!currentUser) return null;
 
-  const startSetup = () => {
-    const secret = generateMockTotpSecret();
-    setSetup({
-      secret,
-      otpauthUrl: buildTotpUrl(secret, currentUser.email),
-    });
-    setCode("");
+  const startSetup = async () => {
+    setBusy(true);
+    try {
+      const result = await setupMfa();
+      setSetup(result);
+      setCode("");
+    } catch (error) {
+      console.error(error);
+      toast.error("Nao foi possivel iniciar o iToken");
+    } finally {
+      setBusy(false);
+    }
   };
 
   const confirmSetup = async () => {
@@ -85,17 +90,23 @@ function SecurityPage() {
       return;
     }
 
-    const valid = await verifyTotpCode(setup?.secret, code);
-    if (!valid) {
+    if (!setup) return;
+
+    setBusy(true);
+    try {
+      await confirmMfa(code);
+    } catch (error) {
+      console.error(error);
       toast.error("Codigo incorreto", {
         description: "Confira o codigo atual no seu aplicativo autenticador.",
       });
+      setBusy(false);
       return;
     }
 
-    updateUser(currentUser.id, { mfaEnabled: true, mfaSecret: setup?.secret });
     setSetup(null);
     setCode("");
+    setBusy(false);
     toast.success("iToken ativado", {
       description: "Agora a exibicao de senhas exige codigo do autenticador.",
     });
@@ -107,16 +118,20 @@ function SecurityPage() {
       return;
     }
 
-    const valid = await verifyTotpCode(currentUser.mfaSecret, disableCode);
-    if (!valid) {
+    setBusy(true);
+    try {
+      await disableMfa(disableCode);
+    } catch (error) {
+      console.error(error);
       toast.error("Codigo incorreto", {
         description: "Confira o codigo atual no seu aplicativo autenticador.",
       });
+      setBusy(false);
       return;
     }
 
-    updateUser(currentUser.id, { mfaEnabled: false, mfaSecret: undefined });
     setDisableCode("");
+    setBusy(false);
     toast.success("iToken desativado");
   };
 
@@ -213,7 +228,7 @@ function SecurityPage() {
 
         {!mfaEnabled && !setup && (
           <div className="mt-6">
-            <Button onClick={startSetup}>
+            <Button onClick={startSetup} disabled={busy}>
               <ShieldCheck /> Configurar iToken
             </Button>
           </div>
@@ -270,7 +285,7 @@ function SecurityPage() {
               </div>
 
               <div className="flex flex-wrap gap-2">
-                <Button onClick={confirmSetup}>
+                <Button onClick={confirmSetup} disabled={busy}>
                   <CheckCircle2 /> Ativar iToken
                 </Button>
                 <Button variant="outline" onClick={() => setSetup(null)}>
@@ -326,7 +341,7 @@ function SecurityPage() {
                   placeholder="000000"
                   className="w-40 font-mono text-lg tracking-[0.35em]"
                 />
-                <Button variant="outline" onClick={disable}>
+                <Button variant="outline" onClick={disable} disabled={busy}>
                   Desativar
                 </Button>
               </div>
