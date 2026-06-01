@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { AccessCard } from "@/components/AccessCard";
 import { AccessForm } from "@/components/AccessForm";
 import { ConfidentialBadge } from "@/components/ConfidentialBadge";
+import { sortByName } from "@/lib/utils";
 
 export const Route = createFileRoute("/_app/departments/$id")({
   component: DepartmentDetailPage,
@@ -29,7 +30,7 @@ function DepartmentDetailPage() {
   }, [department, navigate]);
 
   const deptAccesses = useMemo(
-    () => accesses.filter((a) => getAccessDepartmentIds(a).includes(id)),
+    () => sortByName(accesses.filter((a) => getAccessDepartmentIds(a).includes(id))),
     [accesses, id],
   );
 

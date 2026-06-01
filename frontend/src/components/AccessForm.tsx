@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import {
   Dialog,
@@ -28,6 +28,7 @@ import {
   type Department,
 } from "@/lib/mock-data";
 import { ApiError } from "@/lib/api";
+import { sortByName } from "@/lib/utils";
 
 interface AccessFormProps {
   open: boolean;
@@ -98,6 +99,7 @@ export function AccessForm({
 
   const type = draft.type;
   const selectedDepartmentIds = getAccessDepartmentIds(draft);
+  const sortedDepartments = useMemo(() => sortByName(departments), [departments]);
   const toggleDepartment = (id: string, checked: boolean) => {
     const next = checked
       ? Array.from(new Set([...selectedDepartmentIds, id]))
@@ -134,7 +136,7 @@ export function AccessForm({
             <div className="space-y-2">
               <Label>Departamentos que usam este acesso</Label>
               <div className="grid max-h-40 gap-2 overflow-y-auto rounded-lg border border-border bg-background/40 p-3 sm:grid-cols-2">
-                {departments.map((department) => {
+                {sortedDepartments.map((department) => {
                   const checked = selectedDepartmentIds.includes(department.id);
                   return (
                     <label

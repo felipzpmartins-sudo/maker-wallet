@@ -1,3 +1,4 @@
+import { useMemo } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { toast } from "sonner";
 import { useAuth } from "@/lib/auth-context";
@@ -5,6 +6,7 @@ import { useAdminGuard } from "@/hooks/use-admin-guard";
 import { ROLE_LABELS } from "@/lib/mock-data";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
+import { sortByName } from "@/lib/utils";
 
 export const Route = createFileRoute("/_app/permissions")({
   component: PermissionsPage,
@@ -13,14 +15,17 @@ export const Route = createFileRoute("/_app/permissions")({
 function PermissionsPage() {
   const allowed = useAdminGuard("permissions");
   const { users, departments, currentUser, isCeo, updateUser } = useAuth();
+  const sortedDepartments = useMemo(() => sortByName(departments), [departments]);
 
   if (!allowed) return null;
 
-  const managed = users.filter((u) => {
-    if (u.role === "ceo" || u.role === "pending") return false;
-    if (!isCeo && u.id === currentUser?.id) return false;
-    return u.role === "user" || u.role === "admin";
-  });
+  const managed = sortByName(
+    users.filter((u) => {
+      if (u.role === "ceo" || u.role === "pending") return false;
+      if (!isCeo && u.id === currentUser?.id) return false;
+      return u.role === "user" || u.role === "admin";
+    }),
+  );
 
   const toggleDept = (userId: string, deptId: string, current: string[]) => {
     const next = current.includes(deptId)
@@ -63,7 +68,7 @@ function PermissionsPage() {
                           onCheckedChange={(checked) => {
                             updateUser(u.id, {
                               totalAccess: checked,
-                              allowedDepartments: checked ? departments.map((d) => d.id) : [],
+                              allowedDepartments: checked ? sortedDepartments.map((d) => d.id) : [],
                             });
                             toast(checked ? "Acesso total liberado" : "Acesso total removido", {
                               description: u.name,
@@ -76,7 +81,7 @@ function PermissionsPage() {
                 </div>
 
                 <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4">
-                  {departments.map((d) => {
+                  {sortedDepartments.map((d) => {
                     const checked = total || u.allowedDepartments.includes(d.id);
                     return (
                       <label

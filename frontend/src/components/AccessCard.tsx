@@ -20,6 +20,7 @@ import {
   type AccessEntry,
   type Department,
 } from "@/lib/mock-data";
+import { sortByName } from "@/lib/utils";
 
 interface AccessCardProps {
   access: AccessEntry;
@@ -53,8 +54,8 @@ function Field({ label, value, link }: { label: string; value?: string; link?: b
 export function AccessCard({ access, departments = [], canManage, onEdit, onDelete }: AccessCardProps) {
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
-  const accessDepartments = departments.filter((department) =>
-    getAccessDepartmentIds(access).includes(department.id),
+  const accessDepartments = sortByName(
+    departments.filter((department) => getAccessDepartmentIds(access).includes(department.id)),
   );
 
   return (

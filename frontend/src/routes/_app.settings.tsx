@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { toast } from "sonner";
 import { Plus, Boxes, Copy, Pencil, Trash2 } from "lucide-react";
@@ -6,6 +6,7 @@ import { useAuth } from "@/lib/auth-context";
 import { useAdminGuard } from "@/hooks/use-admin-guard";
 import { departmentIcons, ROLE_LABELS, type Department } from "@/lib/mock-data";
 import { buildRegistrationInviteUrl } from "@/lib/invite";
+import { sortByName } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -48,6 +49,7 @@ function SettingsPage() {
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [inviteUrl, setInviteUrl] = useState("");
+  const sortedDepartments = useMemo(() => sortByName(departments), [departments]);
 
   useEffect(() => {
     setInviteUrl(buildRegistrationInviteUrl(window.location.origin));
@@ -139,7 +141,7 @@ function SettingsPage() {
       <section className="rounded-2xl border border-border bg-card p-6">
         <h2 className="font-display text-lg font-semibold">Departamentos existentes</h2>
         <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
-          {departments.map((d) => {
+          {sortedDepartments.map((d) => {
             const Icon = departmentIcons[d.iconKey] ?? Boxes;
             return (
               <div

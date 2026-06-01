@@ -1,3 +1,4 @@
+import { useMemo } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { toast } from "sonner";
 import { useAuth } from "@/lib/auth-context";
@@ -25,6 +26,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { CheckCircle2, Ban, KeyRound, Trash2 } from "lucide-react";
+import { sortByName } from "@/lib/utils";
 
 export const Route = createFileRoute("/_app/users")({
   component: UsersPage,
@@ -40,6 +42,7 @@ const roleStyles: Record<UserRole, string> = {
 function UsersPage() {
   const allowed = useAdminGuard();
   const { users, currentUser, isCeo, updateUser, deleteUser, resetUserMfa } = useAuth();
+  const sortedUsers = useMemo(() => sortByName(users), [users]);
 
   if (!allowed) return null;
 
@@ -54,7 +57,7 @@ function UsersPage() {
 
       <div className="overflow-hidden rounded-2xl border border-border bg-card">
         <div className="divide-y divide-border">
-          {users.map((u) => (
+          {sortedUsers.map((u) => (
             <div key={u.id} className="flex flex-wrap items-center gap-4 p-4 sm:flex-nowrap">
               <div className="flex h-10 w-10 items-center justify-center rounded-full bg-secondary text-sm font-semibold uppercase">
                 {u.name.slice(0, 2)}

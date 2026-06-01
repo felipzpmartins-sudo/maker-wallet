@@ -21,6 +21,7 @@ import {
   type RenewalService,
   type RenewalServiceType,
 } from "@/lib/mock-data";
+import { sortByName } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -391,6 +392,7 @@ function RenewalForm({
 }) {
   const [draft, setDraft] = useState<RenewalService>(emptyDraft());
   const [saving, setSaving] = useState(false);
+  const sortedAccesses = useMemo(() => sortByName(accesses), [accesses]);
 
   useEffect(() => {
     if (open) setDraft(initial ? { ...initial } : emptyDraft());
@@ -510,7 +512,7 @@ function RenewalForm({
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="none">Nenhum</SelectItem>
-                {accesses.map((access) => (
+                {sortedAccesses.map((access) => (
                   <SelectItem key={access.id} value={access.id}>
                     {access.name}
                   </SelectItem>

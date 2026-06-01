@@ -20,6 +20,7 @@ import {
   ROLE_LABELS,
   type AccessEntry,
 } from "@/lib/mock-data";
+import { sortByName } from "@/lib/utils";
 
 export const Route = createFileRoute("/_app/departments/")({
   component: DepartmentsPage,
@@ -40,30 +41,37 @@ function DepartmentsPage() {
   const [areaFilter, setAreaFilter] = useState("all");
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState<AccessEntry | null>(null);
+  const sortedDepartments = useMemo(() => sortByName(departments), [departments]);
+  const sortedVisibleDepartments = useMemo(
+    () => sortByName(visibleDepartments),
+    [visibleDepartments],
+  );
 
   const filteredAccesses = useMemo(() => {
     const query = search.trim().toLowerCase();
 
-    return accesses.filter((access) => {
-      const departmentIds = getAccessDepartmentIds(access);
-      const matchesArea = areaFilter === "all" || departmentIds.includes(areaFilter);
-      const matchesSearch =
-        !query ||
-        [
-          access.name,
-          access.username,
-          access.email,
-          access.link,
-          access.host,
-          access.appName,
-          access.networkName,
-          access.notes,
-        ]
-          .filter(Boolean)
-          .some((value) => value!.toLowerCase().includes(query));
+    return sortByName(
+      accesses.filter((access) => {
+        const departmentIds = getAccessDepartmentIds(access);
+        const matchesArea = areaFilter === "all" || departmentIds.includes(areaFilter);
+        const matchesSearch =
+          !query ||
+          [
+            access.name,
+            access.username,
+            access.email,
+            access.link,
+            access.host,
+            access.appName,
+            access.networkName,
+            access.notes,
+          ]
+            .filter(Boolean)
+            .some((value) => value!.toLowerCase().includes(query));
 
-      return matchesArea && matchesSearch;
-    });
+        return matchesArea && matchesSearch;
+      }),
+    );
   }, [accesses, areaFilter, search]);
 
   if (currentUser?.role === "pending") {
@@ -105,7 +113,7 @@ function DepartmentsPage() {
         </div>
       ) : !isCeo ? (
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-          {visibleDepartments.map((dep) => {
+          {sortedVisibleDepartments.map((dep) => {
             const Icon = departmentIcons[dep.iconKey] ?? KeyRound;
             const count = accesses.filter((access) =>
               getAccessDepartmentIds(access).includes(dep.id),
@@ -166,7 +174,7 @@ function DepartmentsPage() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">Todas as areas</SelectItem>
-                  {departments.map((department) => (
+                  {sortedDepartments.map((department) => (
                     <SelectItem key={department.id} value={department.id}>
                       {department.name}
                     </SelectItem>
@@ -204,8 +212,8 @@ function DepartmentsPage() {
               setFormOpen(open);
               if (!open) setEditing(null);
             }}
-            departmentId={departments[0]?.id ?? "outros"}
-            departments={departments}
+            departmentId={sortedDepartments[0]?.id ?? "outros"}
+            departments={sortedDepartments}
             allowMultiDepartment
             initial={editing}
             onSave={saveAccess}
