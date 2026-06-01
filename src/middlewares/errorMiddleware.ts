@@ -1,4 +1,5 @@
 import { NextFunction, Request, Response } from "express";
+import { Prisma } from "@prisma/client";
 import { ZodError } from "zod";
 import { failure } from "../utils/apiResponse";
 import { AppError } from "../utils/errors";
@@ -15,6 +16,18 @@ export function errorMiddleware(
 
   if (error instanceof ZodError) {
     return response.status(400).json(failure("Validation error", error.flatten()));
+  }
+
+  if (error instanceof Prisma.PrismaClientKnownRequestError) {
+    console.error(error);
+
+    if (error.code === "P2003") {
+      return response
+        .status(400)
+        .json(failure("Registro relacionado nao encontrado. Faca login novamente."));
+    }
+
+    return response.status(400).json(failure("Database error", { code: error.code }));
   }
 
   console.error(error);

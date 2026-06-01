@@ -202,12 +202,13 @@ function mapApiAccess(access: ApiAccess): AccessEntry {
 
 function mapAccessToApi(access: AccessEntry) {
   const type = mapAccessTypeToApi(access.type);
+  const port = access.port ? Number(access.port) : undefined;
   const body: Record<string, unknown> = {
     type,
     title: access.name,
     description: undefined,
     host: access.host || undefined,
-    port: access.port ? Number(access.port) : undefined,
+    port: Number.isFinite(port) ? port : undefined,
     username: access.username || undefined,
     email: access.email || undefined,
     password: access.password?.trim() || undefined,

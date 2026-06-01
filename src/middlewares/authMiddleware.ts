@@ -1,8 +1,9 @@
 import { NextFunction, Request, Response } from "express";
 import { AppError } from "../utils/errors";
 import { verifyToken } from "../utils/jwt";
+import { prisma } from "../prisma/client";
 
-export function authMiddleware(request: Request, _response: Response, next: NextFunction) {
+export async function authMiddleware(request: Request, _response: Response, next: NextFunction) {
   try {
     const authHeader = request.headers.authorization;
 
@@ -12,11 +13,19 @@ export function authMiddleware(request: Request, _response: Response, next: Next
 
     const token = authHeader.replace("Bearer ", "");
     const payload = verifyToken(token);
+    const user = await prisma.user.findUnique({
+      where: { id: payload.sub },
+      select: { id: true, role: true, email: true }
+    });
+
+    if (!user) {
+      throw new AppError(401, "Sessao expirada. Faca login novamente.");
+    }
 
     request.user = {
-      id: payload.sub,
-      role: payload.role,
-      email: payload.email
+      id: user.id,
+      role: user.role,
+      email: user.email
     };
 
     return next();

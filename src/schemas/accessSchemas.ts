@@ -1,19 +1,31 @@
 import { AccessType } from "@prisma/client";
 import { z } from "zod";
 
+const optionalString = z.preprocess((value) => {
+  if (value === null) return undefined;
+  if (typeof value === "string" && value.trim() === "") return undefined;
+  return value;
+}, z.string().optional());
+
+const optionalPositiveInt = z.preprocess((value) => {
+  if (value === null || value === "") return undefined;
+  if (typeof value === "number" && !Number.isFinite(value)) return undefined;
+  return value;
+}, z.number().int().positive().optional());
+
 export const createAccessSchema = z.object({
   type: z.nativeEnum(AccessType),
   title: z.string().min(2),
-  description: z.string().optional(),
-  host: z.string().optional(),
-  port: z.number().int().positive().optional(),
-  username: z.string().optional(),
-  email: z.string().optional(),
+  description: optionalString,
+  host: optionalString,
+  port: optionalPositiveInt,
+  username: optionalString,
+  email: optionalString,
   password: z.string().optional(),
-  loginUrl: z.string().optional(),
-  observation: z.string().optional(),
-  appName: z.string().optional(),
-  keystoreFilePath: z.string().optional(),
+  loginUrl: optionalString,
+  observation: optionalString,
+  appName: optionalString,
+  keystoreFilePath: optionalString,
   departmentIds: z.array(z.string().min(1)).default([])
 });
 
