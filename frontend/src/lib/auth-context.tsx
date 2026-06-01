@@ -1,12 +1,9 @@
 import { createContext, useContext, useState, useCallback, useEffect, type ReactNode } from "react";
 import {
-  mockUsers,
-  mockDepartments,
-  mockAccesses,
-  mockRenewalServices,
   type AppUser,
   type Department,
   type AccessEntry,
+  type AccessType,
   type RenewalService,
   getAccessDepartmentIds,
 } from "./mock-data";
@@ -27,15 +24,16 @@ interface AuthContextValue {
   ) => Promise<{ ok: boolean; error?: string }>;
   logout: () => void;
   // admin actions
-  updateUser: (id: string, patch: Partial<AppUser>) => void;
+  updateUser: (id: string, patch: Partial<AppUser>) => Promise<void>;
   addDepartment: (dep: Department) => Promise<void>;
   deleteDepartment: (id: string) => Promise<void>;
-  saveAccess: (access: AccessEntry) => void;
-  deleteAccess: (id: string) => void;
-  saveRenewalService: (service: RenewalService) => void;
-  deleteRenewalService: (id: string) => void;
-  deleteUser: (id: string) => void;
-  resetUserMfa: (id: string) => void;
+  saveAccess: (access: AccessEntry) => Promise<void>;
+  deleteAccess: (id: string) => Promise<void>;
+  revealAccessPassword: (id: string, mfaCode: string) => Promise<string>;
+  saveRenewalService: (service: RenewalService) => Promise<void>;
+  deleteRenewalService: (id: string) => Promise<void>;
+  deleteUser: (id: string) => Promise<void>;
+  resetUserMfa: (id: string) => Promise<void>;
   // helpers
   isAdmin: boolean;
   isCeo: boolean;
@@ -46,14 +44,6 @@ interface AuthContextValue {
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
-// Mock credential store — replace with real backend auth later.
-const seededPasswords: Record<string, string> = {
-  "admin@maker.com": "Admin@123456",
-  "ana@maker.com": "maker123",
-  "bruno@maker.com": "maker123",
-  "carla@maker.com": "maker123",
-};
-
 const storageKeys = {
   users: "maker-wallet:users",
   departments: "maker-wallet:departments",
@@ -62,7 +52,10 @@ const storageKeys = {
   passwords: "maker-wallet:passwords",
   currentUser: "maker-wallet:current-user",
   token: "maker-wallet:token",
+  migratedToApi: "maker-wallet:migrated-to-api",
 };
+
+const legacyStorageKeys = Object.values(storageKeys);
 
 interface ApiUser {
   id: string;
@@ -81,6 +74,49 @@ interface LoginResponse {
 }
 
 type ApiDepartment = Department;
+
+interface ApiPaginated<T> {
+  items: T[];
+  pagination: {
+    page: number;
+    limit: number;
+    total: number;
+    pages: number;
+  };
+}
+
+interface ApiAccess {
+  id: string;
+  type: "SSH" | "FTP" | "EMAIL" | "PLATFORM" | "KEYSTORE" | "WIFI";
+  title: string;
+  description?: string | null;
+  host?: string | null;
+  port?: number | null;
+  username?: string | null;
+  email?: string | null;
+  loginUrl?: string | null;
+  observation?: string | null;
+  appName?: string | null;
+  keystoreFilePath?: string | null;
+  departmentIds?: string[];
+}
+
+interface ApiRenewalService {
+  id: string;
+  name: string;
+  type: "EMAIL" | "DOMAIN" | "HOSTING" | "DEVELOPER_ACCOUNT" | "SOFTWARE" | "CERTIFICATE" | "OTHER";
+  provider?: string | null;
+  description?: string | null;
+  renewalUrl?: string | null;
+  amount?: number | null;
+  currency: string;
+  renewalInterval: "MONTHLY" | "QUARTERLY" | "SEMIANNUAL" | "YEARLY" | "BIENNIAL" | "CUSTOM";
+  expiresAt: string;
+  notifyDaysBefore: number;
+  notes?: string | null;
+  isActive: boolean;
+  accessItemId?: string | null;
+}
 
 function mapApiUser(user: ApiUser): AppUser {
   return {
@@ -108,6 +144,157 @@ function mapRoleToApi(role: AppUser["role"]) {
   return "USER";
 }
 
+function mapApiAccessType(type: ApiAccess["type"]): AccessType {
+  if (type === "EMAIL") return "email";
+  if (type === "PLATFORM") return "platform";
+  if (type === "KEYSTORE") return "keystore";
+  if (type === "WIFI") return "wifi";
+  return "ssh_ftp";
+}
+
+function mapAccessTypeToApi(type: AccessType): ApiAccess["type"] {
+  if (type === "email") return "EMAIL";
+  if (type === "platform") return "PLATFORM";
+  if (type === "keystore") return "KEYSTORE";
+  if (type === "wifi") return "WIFI";
+  return "SSH";
+}
+
+function mapApiRenewalType(type: ApiRenewalService["type"]): RenewalService["type"] {
+  return type.toLowerCase() as RenewalService["type"];
+}
+
+function mapRenewalTypeToApi(type: RenewalService["type"]): ApiRenewalService["type"] {
+  return type.toUpperCase() as ApiRenewalService["type"];
+}
+
+function mapApiRenewalInterval(interval: ApiRenewalService["renewalInterval"]): RenewalService["renewalInterval"] {
+  return interval.toLowerCase() as RenewalService["renewalInterval"];
+}
+
+function mapRenewalIntervalToApi(interval: RenewalService["renewalInterval"]): ApiRenewalService["renewalInterval"] {
+  return interval.toUpperCase() as ApiRenewalService["renewalInterval"];
+}
+
+function mapApiAccess(access: ApiAccess): AccessEntry {
+  const departmentIds = access.departmentIds?.length ? access.departmentIds : ["outros"];
+  const type = mapApiAccessType(access.type);
+
+  return {
+    id: access.id,
+    departmentId: departmentIds[0],
+    departmentIds,
+    type,
+    name: access.title,
+    host: access.host ?? undefined,
+    port: access.port ? String(access.port) : undefined,
+    username: access.username ?? undefined,
+    email: access.email ?? undefined,
+    link: access.loginUrl ?? undefined,
+    appName: type === "keystore" || type === "platform" ? (access.appName ?? undefined) : undefined,
+    keystoreFile: access.keystoreFilePath ?? undefined,
+    networkName: type === "wifi" ? access.title : undefined,
+    location: type === "wifi" ? (access.observation ?? undefined) : undefined,
+    password: "",
+    notes: type === "wifi" ? undefined : (access.observation ?? undefined),
+  };
+}
+
+function mapAccessToApi(access: AccessEntry) {
+  const type = mapAccessTypeToApi(access.type);
+  const body: Record<string, unknown> = {
+    type,
+    title: access.name,
+    description: undefined,
+    host: access.host || undefined,
+    port: access.port ? Number(access.port) : undefined,
+    username: access.username || undefined,
+    email: access.email || undefined,
+    password: access.password?.trim() || undefined,
+    loginUrl: access.link || undefined,
+    observation: access.type === "wifi" ? access.location || undefined : access.notes || undefined,
+    appName: access.appName || undefined,
+    keystoreFilePath: access.keystoreFile || undefined,
+    departmentIds: getAccessDepartmentIds(access),
+  };
+
+  if (type === "WIFI") {
+    body.title = access.networkName || access.name;
+  }
+
+  return body;
+}
+
+function mapApiRenewalService(service: ApiRenewalService): RenewalService {
+  return {
+    id: service.id,
+    name: service.name,
+    type: mapApiRenewalType(service.type),
+    provider: service.provider ?? undefined,
+    description: service.description ?? undefined,
+    renewalUrl: service.renewalUrl ?? undefined,
+    amount: service.amount === null || service.amount === undefined ? undefined : String(service.amount),
+    currency: service.currency,
+    renewalInterval: mapApiRenewalInterval(service.renewalInterval),
+    expiresAt: service.expiresAt.slice(0, 10),
+    notifyDaysBefore: service.notifyDaysBefore,
+    notes: service.notes ?? undefined,
+    isActive: service.isActive,
+    accessId: service.accessItemId ?? undefined,
+  };
+}
+
+function mapRenewalServiceToApi(service: RenewalService) {
+  return {
+    name: service.name,
+    type: mapRenewalTypeToApi(service.type),
+    provider: service.provider || undefined,
+    description: service.description || undefined,
+    renewalUrl: service.renewalUrl || undefined,
+    amount: service.amount ? Number(service.amount) : undefined,
+    currency: service.currency || "BRL",
+    renewalInterval: mapRenewalIntervalToApi(service.renewalInterval),
+    expiresAt: service.expiresAt,
+    notifyDaysBefore: service.notifyDaysBefore,
+    notes: service.notes || undefined,
+    isActive: service.isActive,
+    accessItemId: service.accessId || undefined,
+  };
+}
+
+async function migrateLocalItemsToApi(authToken: string) {
+  if (typeof window === "undefined") return;
+
+  const storedAccesses = loadStored<AccessEntry[]>(storageKeys.accesses, []);
+  const storedRenewals = loadStored<RenewalService[]>(storageKeys.renewalServices, []);
+  const localAccesses = storedAccesses.filter((access) => /^a\d+$/.test(access.id));
+  const localRenewals = storedRenewals.filter((service) => /^r\d+$/.test(service.id));
+  const accessIdMap = new Map<string, string>();
+
+  for (const access of localAccesses) {
+    const created = await apiRequest<ApiAccess>("/access", {
+      method: "POST",
+      token: authToken,
+      body: JSON.stringify(mapAccessToApi(access)),
+    });
+    accessIdMap.set(access.id, created.id);
+  }
+
+  for (const service of localRenewals) {
+    await apiRequest<ApiRenewalService>("/renewal-services", {
+      method: "POST",
+      token: authToken,
+      body: JSON.stringify(
+        mapRenewalServiceToApi({
+          ...service,
+          accessId: service.accessId ? (accessIdMap.get(service.accessId) ?? service.accessId) : undefined,
+        }),
+      ),
+    });
+  }
+
+}
+
 function loadStored<T>(key: string, fallback: T) {
   if (typeof window === "undefined") return fallback;
 
@@ -119,37 +306,18 @@ function loadStored<T>(key: string, fallback: T) {
   }
 }
 
-function storeValue<T>(key: string, value: T) {
+function clearLegacyLocalStorage() {
   if (typeof window === "undefined") return;
-  window.localStorage.setItem(key, JSON.stringify(value));
+  legacyStorageKeys.forEach((key) => window.localStorage.removeItem(key));
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [users, setUsers] = useState<AppUser[]>(() => loadStored(storageKeys.users, mockUsers));
-  const [departments, setDepartments] = useState<Department[]>(() =>
-    loadStored(storageKeys.departments, mockDepartments),
-  );
-  const [accesses, setAccesses] = useState<AccessEntry[]>(() =>
-    loadStored(storageKeys.accesses, mockAccesses),
-  );
-  const [renewalServices, setRenewalServices] = useState<RenewalService[]>(() =>
-    loadStored(storageKeys.renewalServices, mockRenewalServices),
-  );
-  const [passwords, setPasswords] = useState<Record<string, string>>(() =>
-    loadStored(storageKeys.passwords, seededPasswords),
-  );
-  const [currentUser, setCurrentUser] = useState<AppUser | null>(() =>
-    loadStored(storageKeys.currentUser, null),
-  );
-  const [token, setToken] = useState<string | null>(() => loadStored(storageKeys.token, null));
-
-  useEffect(() => storeValue(storageKeys.users, users), [users]);
-  useEffect(() => storeValue(storageKeys.departments, departments), [departments]);
-  useEffect(() => storeValue(storageKeys.accesses, accesses), [accesses]);
-  useEffect(() => storeValue(storageKeys.renewalServices, renewalServices), [renewalServices]);
-  useEffect(() => storeValue(storageKeys.passwords, passwords), [passwords]);
-  useEffect(() => storeValue(storageKeys.currentUser, currentUser), [currentUser]);
-  useEffect(() => storeValue(storageKeys.token, token), [token]);
+  const [users, setUsers] = useState<AppUser[]>([]);
+  const [departments, setDepartments] = useState<Department[]>([]);
+  const [accesses, setAccesses] = useState<AccessEntry[]>([]);
+  const [renewalServices, setRenewalServices] = useState<RenewalService[]>([]);
+  const [currentUser, setCurrentUser] = useState<AppUser | null>(null);
+  const [token, setToken] = useState<string | null>(null);
 
   const syncUsersFromApi = useCallback(async (authToken: string) => {
     const apiUsers = await apiRequest<ApiUser[]>("/users", { token: authToken });
@@ -159,6 +327,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const syncDepartmentsFromApi = useCallback(async (authToken: string) => {
     const apiDepartments = await apiRequest<ApiDepartment[]>("/departments", { token: authToken });
     setDepartments(apiDepartments);
+  }, []);
+
+  const syncAccessesFromApi = useCallback(async (authToken: string) => {
+    const result = await apiRequest<ApiPaginated<ApiAccess>>("/access?limit=100", {
+      token: authToken,
+    });
+    setAccesses(result.items.map(mapApiAccess));
+  }, []);
+
+  const syncRenewalServicesFromApi = useCallback(async (authToken: string) => {
+    const result = await apiRequest<ApiPaginated<ApiRenewalService>>("/renewal-services?limit=100", {
+      token: authToken,
+    });
+    setRenewalServices(result.items.map(mapApiRenewalService));
   }, []);
 
   const login = useCallback(
@@ -171,7 +353,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const mappedUser = mapApiUser(result.user);
         setToken(result.token);
         setCurrentUser(mappedUser);
+        try {
+          await migrateLocalItemsToApi(result.token);
+        } catch {
+          /* Keep login usable even if an old browser-only item needs manual cleanup. */
+        }
+        clearLegacyLocalStorage();
         await syncDepartmentsFromApi(result.token);
+        await syncAccessesFromApi(result.token);
+        await syncRenewalServicesFromApi(result.token);
         if (mappedUser.role === "ceo" || mappedUser.role === "admin") {
           await syncUsersFromApi(result.token);
         }
@@ -180,18 +370,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (error instanceof ApiError) {
           return { ok: false, error: error.message };
         }
-        // Keep local development usable when the backend is not running.
+        return { ok: false, error: "Nao foi possivel conectar ao servidor." };
       }
 
-      const user = users.find((u) => u.email.toLowerCase() === email.toLowerCase());
-      if (!user) return { ok: false, error: "Usuário não encontrado." };
-      if (passwords[email.toLowerCase()] !== password)
-        return { ok: false, error: "Senha incorreta." };
-      setToken(null);
-      setCurrentUser(user);
-      return { ok: true };
     },
-    [users, passwords, syncDepartmentsFromApi, syncUsersFromApi],
+    [syncAccessesFromApi, syncDepartmentsFromApi, syncRenewalServicesFromApi, syncUsersFromApi],
   );
 
   const register = useCallback(
@@ -206,23 +389,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (error instanceof ApiError) {
           return { ok: false, error: error.message };
         }
-        // Local fallback only; production writes to the API above.
+        return { ok: false, error: "Nao foi possivel conectar ao servidor." };
       }
-
-      const exists = users.some((u) => u.email.toLowerCase() === email.toLowerCase());
-      if (exists) return { ok: false, error: "Já existe uma conta com este e-mail." };
-      const newUser: AppUser = {
-        id: `u${Date.now()}`,
-        name,
-        email,
-        role: "pending",
-        allowedDepartments: [],
-      };
-      setUsers((prev) => [...prev, newUser]);
-      setPasswords((prev) => ({ ...prev, [email.toLowerCase()]: password }));
-      return { ok: true };
     },
-    [users],
+    [],
   );
 
   const logout = useCallback(() => {
@@ -230,46 +400,40 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setToken(null);
   }, []);
 
-  const updateUser = useCallback((id: string, patch: Partial<AppUser>) => {
-    if (token) {
-      void apiRequest<ApiUser>(`/users/${id}`, {
-        method: "PATCH",
-        token,
-        body: JSON.stringify({
-          name: patch.name,
-          email: patch.email,
-          role: patch.role ? mapRoleToApi(patch.role) : undefined,
-          allowedDepartments: patch.allowedDepartments,
-          totalAccess: patch.role === "ceo" ? true : patch.totalAccess,
-          canManagePermissions:
-            patch.role === "ceo" ? true : patch.canManagePermissions,
-        }),
-      }).then(() => syncUsersFromApi(token));
+  const updateUser = useCallback(async (id: string, patch: Partial<AppUser>) => {
+    if (!token) {
+      throw new Error("Sessao expirada. Faca login novamente.");
     }
-    setUsers((prev) => prev.map((u) => (u.id === id ? { ...u, ...patch } : u)));
-    setCurrentUser((cur) => (cur && cur.id === id ? { ...cur, ...patch } : cur));
+    await apiRequest<ApiUser>(`/users/${id}`, {
+      method: "PATCH",
+      token,
+      body: JSON.stringify({
+        name: patch.name,
+        email: patch.email,
+        role: patch.role ? mapRoleToApi(patch.role) : undefined,
+        allowedDepartments: patch.allowedDepartments,
+        totalAccess: patch.role === "ceo" ? true : patch.totalAccess,
+        canManagePermissions:
+          patch.role === "ceo" ? true : patch.canManagePermissions,
+      }),
+    });
+    await syncUsersFromApi(token);
   }, [syncUsersFromApi, token]);
 
-  const deleteUser = useCallback((id: string) => {
-    if (token) {
-      void apiRequest<null>(`/users/${id}`, { method: "DELETE", token }).then(() =>
-        syncUsersFromApi(token),
-      );
+  const deleteUser = useCallback(async (id: string) => {
+    if (!token) {
+      throw new Error("Sessao expirada. Faca login novamente.");
     }
-    setUsers((prev) => prev.filter((user) => user.id !== id));
+    await apiRequest<null>(`/users/${id}`, { method: "DELETE", token });
+    await syncUsersFromApi(token);
   }, [syncUsersFromApi, token]);
 
-  const resetUserMfa = useCallback((id: string) => {
-    if (token) {
-      void apiRequest<ApiUser>(`/users/${id}/reset-mfa`, { method: "POST", token }).then(() =>
-        syncUsersFromApi(token),
-      );
+  const resetUserMfa = useCallback(async (id: string) => {
+    if (!token) {
+      throw new Error("Sessao expirada. Faca login novamente.");
     }
-    setUsers((prev) =>
-      prev.map((user) =>
-        user.id === id ? { ...user, mfaEnabled: false, mfaSecret: undefined } : user,
-      ),
-    );
+    await apiRequest<ApiUser>(`/users/${id}/reset-mfa`, { method: "POST", token });
+    await syncUsersFromApi(token);
   }, [syncUsersFromApi, token]);
 
   const addDepartment = useCallback(async (dep: Department) => {
@@ -282,7 +446,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       await syncDepartmentsFromApi(token);
       return;
     }
-    setDepartments((prev) => [...prev, dep]);
+    throw new Error("Sessao expirada. Faca login novamente.");
   }, [syncDepartmentsFromApi, token]);
 
   const deleteDepartment = useCallback(async (id: string) => {
@@ -300,66 +464,94 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       );
       return;
     }
-    setDepartments((prev) => prev.filter((department) => department.id !== id));
-    setUsers((prev) =>
-      prev.map((user) => ({
-        ...user,
-        allowedDepartments: user.allowedDepartments.filter((departmentId) => departmentId !== id),
-      })),
-    );
-    setAccesses((prev) =>
-      prev
-        .map((access) => ({
-          ...access,
-          departmentIds: getAccessDepartmentIds(access).filter((departmentId) => departmentId !== id),
-        }))
-        .filter((access) => access.departmentIds?.length),
-    );
+    throw new Error("Sessao expirada. Faca login novamente.");
   }, [syncDepartmentsFromApi, syncUsersFromApi, token]);
 
-  const saveAccess = useCallback((access: AccessEntry) => {
-    setAccesses((prev) => {
-      const idx = prev.findIndex((a) => a.id === access.id);
-      if (idx === -1) return [...prev, access];
-      const next = [...prev];
-      next[idx] = access;
-      return next;
+  const saveAccess = useCallback(async (access: AccessEntry) => {
+    const exists = accesses.some((item) => item.id === access.id);
+    if (token) {
+      await apiRequest<ApiAccess>(exists ? `/access/${access.id}` : "/access", {
+        method: exists ? "PATCH" : "POST",
+        token,
+        body: JSON.stringify(mapAccessToApi(access)),
+      });
+      await syncAccessesFromApi(token);
+      return;
+    }
+    throw new Error("Sessao expirada. Faca login novamente.");
+  }, [accesses, syncAccessesFromApi, token]);
+
+  const deleteAccess = useCallback(async (id: string) => {
+    if (token) {
+      await apiRequest<null>(`/access/${id}`, { method: "DELETE", token });
+      await syncAccessesFromApi(token);
+      return;
+    }
+    throw new Error("Sessao expirada. Faca login novamente.");
+  }, [syncAccessesFromApi, token]);
+
+  const revealAccessPassword = useCallback(async (id: string, mfaCode: string) => {
+    if (!token) {
+      throw new Error("Sessao expirada. Faca login novamente.");
+    }
+
+    const result = await apiRequest<{ password: string }>(`/access/${id}/reveal-password`, {
+      method: "POST",
+      token,
+      body: JSON.stringify({ mfaCode }),
     });
-  }, []);
 
-  const deleteAccess = useCallback((id: string) => {
-    setAccesses((prev) => prev.filter((a) => a.id !== id));
-    setRenewalServices((prev) => prev.map((service) => (service.accessId === id ? { ...service, accessId: undefined } : service)));
-  }, []);
+    return result.password;
+  }, [token]);
 
-  const saveRenewalService = useCallback((service: RenewalService) => {
-    setRenewalServices((prev) => {
-      const idx = prev.findIndex((item) => item.id === service.id);
-      if (idx === -1) return [...prev, service];
-      const next = [...prev];
-      next[idx] = service;
-      return next;
-    });
-  }, []);
+  const saveRenewalService = useCallback(async (service: RenewalService) => {
+    const exists = renewalServices.some((item) => item.id === service.id);
+    if (token) {
+      await apiRequest<ApiRenewalService>(exists ? `/renewal-services/${service.id}` : "/renewal-services", {
+        method: exists ? "PATCH" : "POST",
+        token,
+        body: JSON.stringify(mapRenewalServiceToApi(service)),
+      });
+      await syncRenewalServicesFromApi(token);
+      return;
+    }
+    throw new Error("Sessao expirada. Faca login novamente.");
+  }, [renewalServices, syncRenewalServicesFromApi, token]);
 
-  const deleteRenewalService = useCallback((id: string) => {
-    setRenewalServices((prev) => prev.filter((service) => service.id !== id));
-  }, []);
+  const deleteRenewalService = useCallback(async (id: string) => {
+    if (token) {
+      await apiRequest<null>(`/renewal-services/${id}`, { method: "DELETE", token });
+      await syncRenewalServicesFromApi(token);
+      return;
+    }
+    throw new Error("Sessao expirada. Faca login novamente.");
+  }, [syncRenewalServicesFromApi, token]);
 
   const isCeo = currentUser?.role === "ceo";
   const isAdmin = isCeo || currentUser?.role === "admin";
   const canManagePermissions = isCeo || !!currentUser?.canManagePermissions;
 
   useEffect(() => {
-    if (!token || !isAdmin) return;
+    if (!token) return;
     void syncDepartmentsFromApi(token);
-    void syncUsersFromApi(token);
+    void syncAccessesFromApi(token);
+    void syncRenewalServicesFromApi(token);
+    if (isAdmin) void syncUsersFromApi(token);
     const interval = window.setInterval(() => {
       void syncDepartmentsFromApi(token);
-      void syncUsersFromApi(token);
+      void syncAccessesFromApi(token);
+      void syncRenewalServicesFromApi(token);
+      if (isAdmin) void syncUsersFromApi(token);
     }, 10000);
     return () => window.clearInterval(interval);
-  }, [isAdmin, syncDepartmentsFromApi, syncUsersFromApi, token]);
+  }, [
+    isAdmin,
+    syncAccessesFromApi,
+    syncDepartmentsFromApi,
+    syncRenewalServicesFromApi,
+    syncUsersFromApi,
+    token,
+  ]);
 
   const canAccessDepartment = useCallback(
     (departmentId: string) => {
@@ -389,6 +581,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         deleteDepartment,
         saveAccess,
         deleteAccess,
+        revealAccessPassword,
         saveRenewalService,
         deleteRenewalService,
         deleteUser,

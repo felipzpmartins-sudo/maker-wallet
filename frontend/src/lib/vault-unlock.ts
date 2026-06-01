@@ -1,24 +1,21 @@
-const storageKey = "maker-wallet:vault-unlock-until";
 const unlockDurationMs = 10 * 60 * 1000;
+let vaultUnlockUntil = 0;
 
 export function unlockVault() {
   const unlockUntil = Date.now() + unlockDurationMs;
-  window.localStorage.setItem(storageKey, String(unlockUntil));
+  vaultUnlockUntil = unlockUntil;
   window.dispatchEvent(new Event("maker-wallet:vault-unlock-changed"));
 
   return unlockUntil;
 }
 
 export function lockVault() {
-  window.localStorage.removeItem(storageKey);
+  vaultUnlockUntil = 0;
   window.dispatchEvent(new Event("maker-wallet:vault-unlock-changed"));
 }
 
 export function getVaultUnlockUntil() {
-  const raw = window.localStorage.getItem(storageKey);
-  const unlockUntil = raw ? Number(raw) : 0;
-
-  return Number.isFinite(unlockUntil) ? unlockUntil : 0;
+  return vaultUnlockUntil;
 }
 
 export function isVaultUnlocked() {

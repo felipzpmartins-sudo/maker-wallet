@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { ExternalLink, Pencil, Trash2 } from "lucide-react";
+import { toast } from "sonner";
 import { PasswordField } from "@/components/PasswordField";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -25,7 +26,7 @@ interface AccessCardProps {
   departments?: Department[];
   canManage?: boolean;
   onEdit?: (a: AccessEntry) => void;
-  onDelete?: (id: string) => void;
+  onDelete?: (id: string) => Promise<void>;
 }
 
 function Field({ label, value, link }: { label: string; value?: string; link?: boolean }) {
@@ -51,6 +52,7 @@ function Field({ label, value, link }: { label: string; value?: string; link?: b
 
 export function AccessCard({ access, departments = [], canManage, onEdit, onDelete }: AccessCardProps) {
   const [confirmOpen, setConfirmOpen] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const accessDepartments = departments.filter((department) =>
     getAccessDepartmentIds(access).includes(department.id),
   );
@@ -109,7 +111,7 @@ export function AccessCard({ access, departments = [], canManage, onEdit, onDele
 
       <div className="mt-4">
         <span className="text-xs text-muted-foreground">Senha</span>
-        <PasswordField password={access.password} className="mt-1" />
+        <PasswordField accessId={access.id} password={access.password} className="mt-1" />
       </div>
 
       {access.notes && (
@@ -131,10 +133,24 @@ export function AccessCard({ access, departments = [], canManage, onEdit, onDele
           <AlertDialogFooter>
             <AlertDialogCancel>Cancelar</AlertDialogCancel>
             <AlertDialogAction
-              onClick={() => onDelete?.(access.id)}
+              onClick={async (event) => {
+                event.preventDefault();
+                if (!onDelete || deleting) return;
+                setDeleting(true);
+                try {
+                  await onDelete(access.id);
+                  toast.success("Acesso excluido", { description: access.name });
+                  setConfirmOpen(false);
+                } catch {
+                  toast.error("Nao foi possivel excluir o acesso");
+                } finally {
+                  setDeleting(false);
+                }
+              }}
+              disabled={deleting}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
-              Excluir
+              {deleting ? "Excluindo..." : "Excluir"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

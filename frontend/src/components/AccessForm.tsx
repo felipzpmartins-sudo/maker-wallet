@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { toast } from "sonner";
 import {
   Dialog,
   DialogContent,
@@ -34,7 +35,7 @@ interface AccessFormProps {
   departments?: Department[];
   allowMultiDepartment?: boolean;
   initial?: AccessEntry | null;
-  onSave: (access: AccessEntry) => void;
+  onSave: (access: AccessEntry) => Promise<void>;
 }
 
 const emptyDraft = (departmentId: string): AccessEntry => ({
@@ -55,6 +56,7 @@ export function AccessForm({
   onSave,
 }: AccessFormProps) {
   const [draft, setDraft] = useState<AccessEntry>(emptyDraft(departmentId));
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     if (open) {
@@ -68,18 +70,27 @@ export function AccessForm({
 
   const set = (patch: Partial<AccessEntry>) => setDraft((d) => ({ ...d, ...patch }));
 
-  const submit = () => {
-    if (!draft.name.trim() || !draft.password.trim()) return;
+  const submit = async () => {
+    if (saving || !draft.name.trim() || (!initial && !draft.password.trim())) return;
     const selectedDepartmentIds = allowMultiDepartment
       ? getAccessDepartmentIds(draft)
       : [departmentId];
     if (selectedDepartmentIds.length === 0) return;
-    onSave({
-      ...draft,
-      departmentId: selectedDepartmentIds[0],
-      departmentIds: selectedDepartmentIds,
-    });
-    onOpenChange(false);
+
+    setSaving(true);
+    try {
+      await onSave({
+        ...draft,
+        departmentId: selectedDepartmentIds[0],
+        departmentIds: selectedDepartmentIds,
+      });
+      toast.success(initial ? "Acesso atualizado" : "Acesso criado");
+      onOpenChange(false);
+    } catch {
+      toast.error("Nao foi possivel salvar o acesso");
+    } finally {
+      setSaving(false);
+    }
   };
 
   const type = draft.type;
@@ -240,10 +251,12 @@ export function AccessForm({
         </div>
 
         <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
+          <Button variant="outline" onClick={() => onOpenChange(false)} disabled={saving}>
             Cancelar
           </Button>
-          <Button onClick={submit}>Salvar</Button>
+          <Button onClick={submit} disabled={saving}>
+            {saving ? "Salvando..." : "Salvar"}
+          </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

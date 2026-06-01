@@ -13,7 +13,8 @@ export const createAccessSchema = z.object({
   loginUrl: z.string().url().optional(),
   observation: z.string().optional(),
   appName: z.string().optional(),
-  keystoreFilePath: z.string().optional()
+  keystoreFilePath: z.string().optional(),
+  departmentIds: z.array(z.string().min(1)).default([])
 });
 
 export const updateAccessSchema = createAccessSchema.partial();

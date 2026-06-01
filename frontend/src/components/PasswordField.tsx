@@ -18,22 +18,26 @@ import { isVaultUnlocked, unlockVault } from "@/lib/vault-unlock";
 import { cn } from "@/lib/utils";
 
 interface PasswordFieldProps {
+  accessId?: string;
   password: string;
   label?: string;
   className?: string;
 }
 
-export function PasswordField({ password, label = "Senha", className }: PasswordFieldProps) {
-  const { currentUser } = useAuth();
+export function PasswordField({ accessId, password, label = "Senha", className }: PasswordFieldProps) {
+  const { currentUser, revealAccessPassword } = useAuth();
   const [visible, setVisible] = useState(false);
   const [copied, setCopied] = useState(false);
   const [challengeOpen, setChallengeOpen] = useState(false);
   const [mfaCode, setMfaCode] = useState("");
   const [pendingAction, setPendingAction] = useState<"reveal" | "copy" | null>(null);
+  const [revealedPassword, setRevealedPassword] = useState("");
+
+  const displayPassword = revealedPassword || password;
 
   const copy = async () => {
     try {
-      await navigator.clipboard.writeText(password);
+      await navigator.clipboard.writeText(displayPassword);
     } catch {
       /* clipboard may be unavailable */
     }
@@ -55,7 +59,7 @@ export function PasswordField({ password, label = "Senha", className }: Password
       return;
     }
 
-    if (isVaultUnlocked()) {
+    if (isVaultUnlocked() && (!accessId || revealedPassword)) {
       if (action === "copy") {
         void copy();
       } else {
@@ -75,19 +79,40 @@ export function PasswordField({ password, label = "Senha", className }: Password
       return;
     }
 
-    const valid = await verifyTotpCode(currentUser?.mfaSecret, mfaCode);
-    if (!valid) {
-      toast.error("Codigo incorreto", {
-        description: "Confira o codigo atual no seu aplicativo autenticador.",
-      });
-      return;
+    let unlockedPassword = displayPassword;
+
+    if (accessId) {
+      try {
+        unlockedPassword = await revealAccessPassword(accessId, mfaCode);
+        setRevealedPassword(unlockedPassword);
+      } catch {
+        toast.error("Codigo incorreto", {
+          description: "Confira o codigo atual no seu aplicativo autenticador.",
+        });
+        return;
+      }
+    } else {
+      const valid = await verifyTotpCode(currentUser?.mfaSecret, mfaCode);
+      if (!valid) {
+        toast.error("Codigo incorreto", {
+          description: "Confira o codigo atual no seu aplicativo autenticador.",
+        });
+        return;
+      }
     }
 
     setChallengeOpen(false);
     unlockVault();
 
     if (pendingAction === "copy") {
-      await copy();
+      try {
+        await navigator.clipboard.writeText(unlockedPassword);
+      } catch {
+        /* clipboard may be unavailable */
+      }
+      setCopied(true);
+      toast.success("Copiado", { description: `${label} copiada para a area de transferencia.` });
+      setTimeout(() => setCopied(false), 1800);
     } else {
       setVisible(true);
       toast.success("Cofre desbloqueado", {
@@ -102,7 +127,7 @@ export function PasswordField({ password, label = "Senha", className }: Password
     <>
       <div className={cn("flex items-center gap-2", className)}>
         <code className="flex-1 truncate rounded-md border border-border bg-background/60 px-3 py-2 font-mono text-sm tracking-wider">
-          {visible ? password : "*".repeat(Math.min(password.length, 14))}
+          {visible ? displayPassword : "*".repeat(Math.min(displayPassword.length || 12, 14))}
         </code>
         <Button
           type="button"

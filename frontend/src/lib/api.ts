@@ -33,6 +33,10 @@ export async function apiRequest<T>(
     ...options,
     headers,
   });
+  if (response.status === 204) {
+    return null as T;
+  }
+
   const payload = (await response.json()) as ApiResponse<T>;
 
   if (!response.ok || !payload.success) {

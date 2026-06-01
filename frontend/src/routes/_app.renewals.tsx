@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
+import { toast } from "sonner";
 import {
   AlertTriangle,
   CalendarClock,
@@ -253,9 +254,10 @@ function RenewalCard({
   accessName?: string;
   canManage?: boolean;
   onEdit: (service: RenewalService) => void;
-  onDelete: (id: string) => void;
+  onDelete: (id: string) => Promise<void>;
 }) {
   const [confirmOpen, setConfirmOpen] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const status = getStatus(service);
   const remaining = daysUntil(service.expiresAt);
   const StatusIcon = statusConfig[status].icon;
@@ -339,10 +341,24 @@ function RenewalCard({
           <AlertDialogFooter>
             <AlertDialogCancel>Cancelar</AlertDialogCancel>
             <AlertDialogAction
-              onClick={() => onDelete(service.id)}
+              onClick={async (event) => {
+                event.preventDefault();
+                if (deleting) return;
+                setDeleting(true);
+                try {
+                  await onDelete(service.id);
+                  toast.success("Servico excluido", { description: service.name });
+                  setConfirmOpen(false);
+                } catch {
+                  toast.error("Nao foi possivel excluir o servico");
+                } finally {
+                  setDeleting(false);
+                }
+              }}
+              disabled={deleting}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
-              Excluir
+              {deleting ? "Excluindo..." : "Excluir"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -371,9 +387,10 @@ function RenewalForm({
   onOpenChange: (open: boolean) => void;
   initial: RenewalService | null;
   accesses: Array<{ id: string; name: string }>;
-  onSave: (service: RenewalService) => void;
+  onSave: (service: RenewalService) => Promise<void>;
 }) {
   const [draft, setDraft] = useState<RenewalService>(emptyDraft());
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     if (open) setDraft(initial ? { ...initial } : emptyDraft());
@@ -381,15 +398,23 @@ function RenewalForm({
 
   const set = (patch: Partial<RenewalService>) => setDraft((current) => ({ ...current, ...patch }));
 
-  const submit = () => {
-    if (!draft.name.trim() || !draft.expiresAt) return;
-    onSave({
-      ...draft,
-      name: draft.name.trim(),
-      provider: draft.provider?.trim() || undefined,
-      accessId: draft.accessId || undefined,
-    });
-    onOpenChange(false);
+  const submit = async () => {
+    if (saving || !draft.name.trim() || !draft.expiresAt) return;
+    setSaving(true);
+    try {
+      await onSave({
+        ...draft,
+        name: draft.name.trim(),
+        provider: draft.provider?.trim() || undefined,
+        accessId: draft.accessId || undefined,
+      });
+      toast.success(initial ? "Servico atualizado" : "Servico criado");
+      onOpenChange(false);
+    } catch {
+      toast.error("Nao foi possivel salvar o servico");
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -501,10 +526,12 @@ function RenewalForm({
         </div>
 
         <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
+          <Button variant="outline" onClick={() => onOpenChange(false)} disabled={saving}>
             Cancelar
           </Button>
-          <Button onClick={submit}>Salvar</Button>
+          <Button onClick={submit} disabled={saving}>
+            {saving ? "Salvando..." : "Salvar"}
+          </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

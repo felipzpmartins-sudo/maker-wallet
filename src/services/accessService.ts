@@ -20,6 +20,7 @@ type AccessInput = {
   observation?: string;
   appName?: string;
   keystoreFilePath?: string;
+  departmentIds?: string[];
 };
 
 type AccessQuery = {
@@ -43,7 +44,8 @@ function buildAccessData(data: Partial<AccessInput>) {
     loginUrl: data.loginUrl,
     observation: data.observation,
     appName: data.appName,
-    keystoreFilePath: data.keystoreFilePath
+    keystoreFilePath: data.keystoreFilePath,
+    departmentIds: data.departmentIds
   };
 
   if (data.password) {
