@@ -27,6 +27,7 @@ import {
   type AccessType,
   type Department,
 } from "@/lib/mock-data";
+import { ApiError } from "@/lib/api";
 
 interface AccessFormProps {
   open: boolean;
@@ -86,8 +87,10 @@ export function AccessForm({
       });
       toast.success(initial ? "Acesso atualizado" : "Acesso criado");
       onOpenChange(false);
-    } catch {
-      toast.error("Nao foi possivel salvar o acesso");
+    } catch (error) {
+      console.error(error);
+      const description = error instanceof ApiError ? error.message : undefined;
+      toast.error("Nao foi possivel salvar o acesso", { description });
     } finally {
       setSaving(false);
     }

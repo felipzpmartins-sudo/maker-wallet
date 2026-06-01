@@ -111,7 +111,10 @@ function DepartmentDetailPage() {
       {isAdmin && (
         <AccessForm
           open={formOpen}
-          onOpenChange={setFormOpen}
+          onOpenChange={(open) => {
+            setFormOpen(open);
+            if (!open) setEditing(null);
+          }}
           departmentId={id}
           departments={departments}
           allowMultiDepartment={isCeo}

@@ -200,7 +200,10 @@ function DepartmentsPage() {
 
           <AccessForm
             open={formOpen}
-            onOpenChange={setFormOpen}
+            onOpenChange={(open) => {
+              setFormOpen(open);
+              if (!open) setEditing(null);
+            }}
             departmentId={departments[0]?.id ?? "outros"}
             departments={departments}
             allowMultiDepartment
