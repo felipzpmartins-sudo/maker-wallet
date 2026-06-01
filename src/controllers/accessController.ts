@@ -8,8 +8,18 @@ export async function create(request: Request, response: Response) {
 }
 
 export async function list(request: Request, response: Response) {
-  const result = await accessService.listAccess(request.query as never, request.user!);
-  return response.json(success(result));
+  try {
+    const result = await accessService.listAccess(request.query as never, request.user!);
+    return response.json(success(result));
+  } catch (error) {
+    console.error(error);
+    const message = error instanceof Error ? error.message : "Unknown access list error";
+    return response.status(500).json({
+      success: false,
+      message: "Access list error",
+      details: message,
+    });
+  }
 }
 
 export async function get(request: Request, response: Response) {
