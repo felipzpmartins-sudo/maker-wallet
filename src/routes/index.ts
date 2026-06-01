@@ -5,8 +5,13 @@ import { accessRoutes } from "./accessRoutes";
 import { uploadRoutes } from "./uploadRoutes";
 import { renewalServiceRoutes } from "./renewalServiceRoutes";
 import { departmentRoutes } from "./departmentRoutes";
+import { env } from "../config/env";
 
 export const routes = Router();
+
+routes.get("/", (_request, response) => {
+  return response.redirect(env.FRONTEND_URL);
+});
 
 routes.get("/health", (_request, response) => {
   return response.json({
