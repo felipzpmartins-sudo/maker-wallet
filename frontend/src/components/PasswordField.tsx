@@ -112,7 +112,7 @@ export function PasswordField({ accessId, password, label = "Senha", className }
     } else {
       setVisible(true);
       toast.success("Cofre desbloqueado", {
-        description: "Voce pode revelar senhas por 10 minutos sem informar novo codigo.",
+        description: "Voce pode revelar senhas por 1 minuto sem informar novo codigo.",
       });
     }
 

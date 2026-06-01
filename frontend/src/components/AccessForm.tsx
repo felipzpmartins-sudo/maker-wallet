@@ -226,6 +226,36 @@ export function AccessForm({
             </>
           )}
 
+          {type === "sankhya" && (
+            <>
+              <Input
+                placeholder="Host"
+                value={draft.host ?? ""}
+                onChange={(e) => set({ host: e.target.value })}
+              />
+              <Input
+                placeholder="Usuario"
+                value={draft.username ?? ""}
+                onChange={(e) => set({ username: e.target.value })}
+              />
+              <Input
+                placeholder="ID"
+                value={draft.credentialId ?? ""}
+                onChange={(e) => set({ credentialId: e.target.value })}
+              />
+              <Input
+                placeholder="Secret"
+                value={draft.credentialSecret ?? ""}
+                onChange={(e) => set({ credentialSecret: e.target.value })}
+              />
+              <Input
+                placeholder="Token"
+                value={draft.credentialToken ?? ""}
+                onChange={(e) => set({ credentialToken: e.target.value })}
+              />
+            </>
+          )}
+
           {type === "keystore" && (
             <Input
               placeholder="Arquivo Keystore (nome)"

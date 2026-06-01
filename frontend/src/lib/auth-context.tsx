@@ -96,7 +96,7 @@ interface ApiPaginated<T> {
 
 interface ApiAccess {
   id: string;
-  type: "SSH" | "FTP" | "EMAIL" | "PLATFORM" | "KEYSTORE" | "WIFI";
+  type: "SSH" | "FTP" | "EMAIL" | "PLATFORM" | "KEYSTORE" | "WIFI" | "SANKHYA";
   title: string;
   description?: string | null;
   host?: string | null;
@@ -107,6 +107,9 @@ interface ApiAccess {
   observation?: string | null;
   appName?: string | null;
   keystoreFilePath?: string | null;
+  credentialId?: string | null;
+  credentialSecret?: string | null;
+  credentialToken?: string | null;
   departmentIds?: string[];
 }
 
@@ -158,6 +161,7 @@ function mapApiAccessType(type: ApiAccess["type"]): AccessType {
   if (type === "PLATFORM") return "platform";
   if (type === "KEYSTORE") return "keystore";
   if (type === "WIFI") return "wifi";
+  if (type === "SANKHYA") return "sankhya";
   return "ssh_ftp";
 }
 
@@ -166,6 +170,7 @@ function mapAccessTypeToApi(type: AccessType): ApiAccess["type"] {
   if (type === "platform") return "PLATFORM";
   if (type === "keystore") return "KEYSTORE";
   if (type === "wifi") return "WIFI";
+  if (type === "sankhya") return "SANKHYA";
   return "SSH";
 }
 
@@ -202,6 +207,9 @@ function mapApiAccess(access: ApiAccess): AccessEntry {
     link: access.loginUrl ?? undefined,
     appName: type === "keystore" || type === "platform" ? (access.appName ?? undefined) : undefined,
     keystoreFile: access.keystoreFilePath ?? undefined,
+    credentialId: access.credentialId ?? undefined,
+    credentialSecret: access.credentialSecret ?? undefined,
+    credentialToken: access.credentialToken ?? undefined,
     networkName: type === "wifi" ? access.title : undefined,
     location: type === "wifi" ? (access.observation ?? undefined) : undefined,
     password: "",
@@ -225,6 +233,9 @@ function mapAccessToApi(access: AccessEntry) {
     observation: access.type === "wifi" ? access.location || undefined : access.notes || undefined,
     appName: access.appName || undefined,
     keystoreFilePath: access.keystoreFile || undefined,
+    credentialId: access.credentialId || undefined,
+    credentialSecret: access.credentialSecret || undefined,
+    credentialToken: access.credentialToken || undefined,
     departmentIds: getAccessDepartmentIds(access),
   };
 

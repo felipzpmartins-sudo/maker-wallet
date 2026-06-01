@@ -1,4 +1,4 @@
-const unlockDurationMs = 10 * 60 * 1000;
+const unlockDurationMs = 60 * 1000;
 let vaultUnlockUntil = 0;
 
 export function unlockVault() {

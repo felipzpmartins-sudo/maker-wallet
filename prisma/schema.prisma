@@ -20,6 +20,7 @@ enum AccessType {
   PLATFORM
   KEYSTORE
   WIFI
+  SANKHYA
 }
 
 enum RenewalServiceType {
@@ -84,6 +85,9 @@ model AccessItem {
   observation      String?
   appName          String?
   keystoreFilePath String?
+  credentialId     String?
+  credentialSecret String?
+  credentialToken  String?
   departmentIds    String[]           @default([])
   createdById      String
   createdAt        DateTime           @default(now())

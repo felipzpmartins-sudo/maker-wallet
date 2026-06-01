@@ -309,7 +309,7 @@ function SecurityPage() {
               <p className="mt-1 text-sm text-muted-foreground">
                 {vaultUnlocked
                   ? `Desbloqueado ate ${unlockTime}. Voce pode exibir/copiar senhas sem novo codigo.`
-                  : "Bloqueado. Ao exibir a primeira senha, informe o codigo do autenticador para liberar por 10 minutos."}
+                  : "Bloqueado. Ao exibir a primeira senha, informe o codigo do autenticador para liberar por 1 minuto."}
               </p>
               {vaultUnlocked && (
                 <Button

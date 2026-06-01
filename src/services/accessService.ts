@@ -20,6 +20,9 @@ type AccessInput = {
   observation?: string;
   appName?: string;
   keystoreFilePath?: string;
+  credentialId?: string;
+  credentialSecret?: string;
+  credentialToken?: string;
   departmentIds?: string[];
 };
 
@@ -45,6 +48,9 @@ function buildAccessData(data: Partial<AccessInput>) {
     observation: data.observation,
     appName: data.appName,
     keystoreFilePath: data.keystoreFilePath,
+    credentialId: data.credentialId,
+    credentialSecret: data.credentialSecret,
+    credentialToken: data.credentialToken,
     departmentIds: data.departmentIds
   };
 
@@ -202,6 +208,9 @@ async function listAdminAccess(query: AccessQuery) {
       "observation",
       "appName",
       "keystoreFilePath",
+      "credentialId",
+      "credentialSecret",
+      "credentialToken",
       "departmentIds",
       "createdById",
       "createdAt",

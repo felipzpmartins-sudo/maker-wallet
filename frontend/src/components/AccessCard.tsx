@@ -106,6 +106,9 @@ export function AccessCard({ access, departments = [], canManage, onEdit, onDele
         <Field label="E-mail" value={access.email} />
         <Field label="Local" value={access.location} />
         <Field label="Arquivo Keystore" value={access.keystoreFile} />
+        <Field label="ID" value={access.credentialId} />
+        <Field label="Secret" value={access.credentialSecret} />
+        <Field label="Token" value={access.credentialToken} />
         <Field label="Link de acesso" value={access.link} link />
       </div>
 

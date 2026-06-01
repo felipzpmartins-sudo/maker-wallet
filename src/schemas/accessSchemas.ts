@@ -26,6 +26,9 @@ export const createAccessSchema = z.object({
   observation: optionalString,
   appName: optionalString,
   keystoreFilePath: optionalString,
+  credentialId: optionalString,
+  credentialSecret: optionalString,
+  credentialToken: optionalString,
   departmentIds: z.array(z.string().min(1)).default([])
 });
 
