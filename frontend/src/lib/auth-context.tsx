@@ -271,39 +271,6 @@ function mapRenewalServiceToApi(service: RenewalService) {
   };
 }
 
-async function migrateLocalItemsToApi(authToken: string) {
-  if (typeof window === "undefined") return;
-
-  const storedAccesses = loadStored<AccessEntry[]>(storageKeys.accesses, []);
-  const storedRenewals = loadStored<RenewalService[]>(storageKeys.renewalServices, []);
-  const localAccesses = storedAccesses.filter((access) => /^a\d+$/.test(access.id));
-  const localRenewals = storedRenewals.filter((service) => /^r\d+$/.test(service.id));
-  const accessIdMap = new Map<string, string>();
-
-  for (const access of localAccesses) {
-    const created = await apiRequest<ApiAccess>("/access", {
-      method: "POST",
-      token: authToken,
-      body: JSON.stringify(mapAccessToApi(access)),
-    });
-    accessIdMap.set(access.id, created.id);
-  }
-
-  for (const service of localRenewals) {
-    await apiRequest<ApiRenewalService>("/renewal-services", {
-      method: "POST",
-      token: authToken,
-      body: JSON.stringify(
-        mapRenewalServiceToApi({
-          ...service,
-          accessId: service.accessId ? (accessIdMap.get(service.accessId) ?? service.accessId) : undefined,
-        }),
-      ),
-    });
-  }
-
-}
-
 function loadStored<T>(key: string, fallback: T) {
   if (typeof window === "undefined") return fallback;
 
@@ -362,11 +329,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const mappedUser = mapApiUser(result.user);
         setToken(result.token);
         setCurrentUser(mappedUser);
-        try {
-          await migrateLocalItemsToApi(result.token);
-        } catch {
-          /* Keep login usable even if an old browser-only item needs manual cleanup. */
-        }
         clearLegacyLocalStorage();
         await syncDepartmentsFromApi(result.token);
         await syncAccessesFromApi(result.token);
