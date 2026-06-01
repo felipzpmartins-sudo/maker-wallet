@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { toast } from "sonner";
-import { Plus, Boxes, Copy, Trash2 } from "lucide-react";
+import { Plus, Boxes, Copy, Pencil, Trash2 } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { useAdminGuard } from "@/hooks/use-admin-guard";
 import { departmentIcons, ROLE_LABELS, type Department } from "@/lib/mock-data";
@@ -10,6 +10,14 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ConfidentialBadge } from "@/components/ConfidentialBadge";
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -36,7 +44,7 @@ const slugify = (s: string) =>
 
 function SettingsPage() {
   const allowed = useAdminGuard("admin");
-  const { departments, addDepartment, deleteDepartment } = useAuth();
+  const { departments, addDepartment, updateDepartment, deleteDepartment } = useAuth();
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [inviteUrl, setInviteUrl] = useState("");
@@ -140,6 +148,7 @@ function SettingsPage() {
               >
                 <Icon className="h-4 w-4 text-primary" />
                 <span className="min-w-0 flex-1 truncate text-sm">{d.name}</span>
+                <DepartmentEditDialog department={d} onSave={updateDepartment} />
                 <AlertDialog>
                   <AlertDialogTrigger asChild>
                     <Button
@@ -204,5 +213,82 @@ function SettingsPage() {
         </ul>
       </section>
     </div>
+  );
+}
+
+function DepartmentEditDialog({
+  department,
+  onSave,
+}: {
+  department: Department;
+  onSave: (id: string, patch: Partial<Department>) => Promise<void>;
+}) {
+  const [open, setOpen] = useState(false);
+  const [name, setName] = useState(department.name);
+  const [description, setDescription] = useState(department.description);
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    if (!open) return;
+    setName(department.name);
+    setDescription(department.description);
+  }, [department, open]);
+
+  const save = async () => {
+    const nextName = name.trim();
+    if (!nextName) return;
+
+    setSaving(true);
+    try {
+      await onSave(department.id, {
+        name: nextName,
+        description: description.trim() || "Departamento personalizado",
+        iconKey: department.iconKey,
+      });
+      toast.success("Departamento atualizado", { description: nextName });
+      setOpen(false);
+    } catch {
+      toast.error("Nao foi possivel atualizar o departamento");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
+        <Button
+          size="icon"
+          variant="ghost"
+          className="h-8 w-8 shrink-0 text-muted-foreground hover:text-primary"
+          aria-label="Editar departamento"
+        >
+          <Pencil className="h-4 w-4" />
+        </Button>
+      </DialogTrigger>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Editar departamento</DialogTitle>
+        </DialogHeader>
+        <div className="grid gap-4 py-2">
+          <div className="space-y-2">
+            <Label>Nome</Label>
+            <Input value={name} onChange={(e) => setName(e.target.value)} />
+          </div>
+          <div className="space-y-2">
+            <Label>Descricao</Label>
+            <Input value={description} onChange={(e) => setDescription(e.target.value)} />
+          </div>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => setOpen(false)}>
+            Cancelar
+          </Button>
+          <Button onClick={save} disabled={saving || !name.trim()}>
+            {saving ? "Salvando..." : "Salvar alteracoes"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }

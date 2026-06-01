@@ -22,6 +22,26 @@ export async function createDepartment(data: {
   return prisma.department.create({ data });
 }
 
+export async function updateDepartment(
+  id: string,
+  data: Partial<{
+    name: string;
+    iconKey: string;
+    description: string;
+  }>
+) {
+  const existing = await prisma.department.findUnique({ where: { id } });
+
+  if (!existing) {
+    throw new AppError(404, "Department not found");
+  }
+
+  return prisma.department.update({
+    where: { id },
+    data
+  });
+}
+
 export async function deleteDepartment(id: string) {
   const existing = await prisma.department.findUnique({ where: { id } });
 

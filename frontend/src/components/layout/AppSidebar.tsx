@@ -25,7 +25,7 @@ import { useAuth } from "@/lib/auth-context";
 import { ROLE_LABELS } from "@/lib/mock-data";
 
 const baseItems = [
-  { title: "Departamentos", url: "/departments", icon: FolderLock },
+  { title: "Acessos", url: "/departments", icon: FolderLock },
   { title: "Seguranca", url: "/security", icon: KeyRound },
 ];
 

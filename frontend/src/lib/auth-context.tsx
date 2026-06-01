@@ -26,6 +26,7 @@ interface AuthContextValue {
   // admin actions
   updateUser: (id: string, patch: Partial<AppUser>) => Promise<void>;
   addDepartment: (dep: Department) => Promise<void>;
+  updateDepartment: (id: string, patch: Partial<Department>) => Promise<void>;
   deleteDepartment: (id: string) => Promise<void>;
   saveAccess: (access: AccessEntry) => Promise<void>;
   deleteAccess: (id: string) => Promise<void>;
@@ -420,6 +421,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     throw new Error("Sessao expirada. Faca login novamente.");
   }, [syncDepartmentsFromApi, token]);
 
+  const updateDepartment = useCallback(async (id: string, patch: Partial<Department>) => {
+    if (token) {
+      await apiRequest<ApiDepartment>(`/departments/${id}`, {
+        method: "PATCH",
+        token,
+        body: JSON.stringify({
+          name: patch.name,
+          iconKey: patch.iconKey,
+          description: patch.description,
+        }),
+      });
+      await syncDepartmentsFromApi(token);
+      return;
+    }
+    throw new Error("Sessao expirada. Faca login novamente.");
+  }, [syncDepartmentsFromApi, token]);
+
   const deleteDepartment = useCallback(async (id: string) => {
     if (token) {
       await apiRequest<null>(`/departments/${id}`, { method: "DELETE", token });
@@ -588,6 +606,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         logout,
         updateUser,
         addDepartment,
+        updateDepartment,
         deleteDepartment,
         saveAccess,
         deleteAccess,
