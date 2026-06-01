@@ -14,7 +14,10 @@ export function validate(schemas: Schemas) {
     }
 
     if (schemas.query) {
-      request.query = schemas.query.parse(request.query) as Request["query"];
+      Object.defineProperty(request, "query", {
+        value: schemas.query.parse(request.query),
+        configurable: true
+      });
     }
 
     if (schemas.params) {

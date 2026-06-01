@@ -31,9 +31,5 @@ export function errorMiddleware(
   }
 
   console.error(error);
-  const details =
-    error instanceof Error
-      ? { name: error.name, message: error.message }
-      : { message: String(error) };
-  return response.status(500).json(failure("Internal server error", details));
+  return response.status(500).json(failure("Internal server error"));
 }
