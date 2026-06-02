@@ -15,7 +15,7 @@ import {
 
 export type UserRole = "ceo" | "admin" | "user" | "pending";
 
-export type AccessType = "ssh_ftp" | "email" | "platform" | "keystore" | "wifi" | "sankhya";
+export type AccessType = "ssh_ftp" | "email" | "platform" | "keystore" | "wifi" | "api_integration";
 
 export type RenewalServiceType =
   | "email"
@@ -97,7 +97,7 @@ export const ACCESS_TYPE_LABELS: Record<AccessType, string> = {
   platform: "Plataforma / Sistema",
   keystore: "Keystore",
   wifi: "Wi-Fi",
-  sankhya: "Sankhya",
+  api_integration: "Integracao de API",
 };
 
 export const RENEWAL_TYPE_LABELS: Record<RenewalServiceType, string> = {

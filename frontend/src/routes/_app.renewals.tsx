@@ -9,6 +9,7 @@ import {
   LinkIcon,
   Pencil,
   Plus,
+  Search,
   Trash2,
   XCircle,
 } from "lucide-react";
@@ -26,6 +27,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { ListPagination } from "@/components/ListPagination";
 import { Textarea } from "@/components/ui/textarea";
 import {
   Select,
@@ -138,16 +140,43 @@ function RenewalsPage() {
   const { renewalServices, accesses, isAdmin, saveRenewalService, deleteRenewalService } = useAuth();
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState<RenewalService | null>(null);
+  const [search, setSearch] = useState("");
+  const [typeFilter, setTypeFilter] = useState<RenewalServiceType | "all">("all");
+  const [accessFilter, setAccessFilter] = useState<string>("all");
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
 
-  const sortedServices = useMemo(
-    () =>
-      [...renewalServices].sort((a, b) => {
+  const filteredServices = useMemo(
+    () => {
+      const normalizedSearch = search.trim().toLowerCase();
+      return [...renewalServices]
+        .filter((service) => {
+          const accessName = accesses.find((access) => access.id === service.accessId)?.name ?? "";
+          const searchable = [service.name, service.provider, accessName].filter(Boolean).join(" ").toLowerCase();
+          const matchesSearch = !normalizedSearch || searchable.includes(normalizedSearch);
+          const matchesType = typeFilter === "all" || service.type === typeFilter;
+          const matchesAccess =
+            accessFilter === "all" ||
+            (accessFilter === "none" ? !service.accessId : service.accessId === accessFilter);
+          return matchesSearch && matchesType && matchesAccess;
+        })
+        .sort((a, b) => {
         const statusOrder = { expired: 0, expiring: 1, active: 2, inactive: 3 };
         const statusDiff = statusOrder[getStatus(a)] - statusOrder[getStatus(b)];
         if (statusDiff !== 0) return statusDiff;
         return daysUntil(a.expiresAt) - daysUntil(b.expiresAt);
-      }),
-    [renewalServices],
+      });
+    },
+    [accessFilter, accesses, renewalServices, search, typeFilter],
+  );
+
+  useEffect(() => {
+    setPage(1);
+  }, [search, typeFilter, accessFilter, pageSize]);
+
+  const paginatedServices = useMemo(
+    () => filteredServices.slice((page - 1) * pageSize, page * pageSize),
+    [filteredServices, page, pageSize],
   );
 
   const summary = useMemo(
@@ -186,26 +215,74 @@ function RenewalsPage() {
         <SummaryItem label="Em dia" value={summary.active} tone="success" />
       </div>
 
-      {sortedServices.length === 0 ? (
+      <div className="grid grid-cols-1 gap-3 rounded-xl border border-border bg-card p-4 lg:grid-cols-[1fr_220px_260px]">
+        <div className="relative">
+          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            value={search}
+            onChange={(event) => setSearch(event.target.value)}
+            placeholder="Filtrar por nome, fornecedor ou acesso"
+            className="pl-9"
+          />
+        </div>
+        <Select value={typeFilter} onValueChange={(value) => setTypeFilter(value as RenewalServiceType | "all")}>
+          <SelectTrigger>
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Todos os tipos</SelectItem>
+            {(Object.keys(RENEWAL_TYPE_LABELS) as RenewalServiceType[]).map((type) => (
+              <SelectItem key={type} value={type}>
+                {RENEWAL_TYPE_LABELS[type]}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <Select value={accessFilter} onValueChange={setAccessFilter}>
+          <SelectTrigger>
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Todos os acessos</SelectItem>
+            <SelectItem value="none">Sem acesso vinculado</SelectItem>
+            {sortByName(accesses).map((access) => (
+              <SelectItem key={access.id} value={access.id}>
+                {access.name}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+
+      {filteredServices.length === 0 ? (
         <div className="rounded-2xl border border-border bg-card p-10 text-center text-sm text-muted-foreground">
-          Nenhum servico recorrente cadastrado.
+          Nenhum servico recorrente encontrado.
         </div>
       ) : (
-        <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
-          {sortedServices.map((service) => (
-            <RenewalCard
-              key={service.id}
-              service={service}
-              accessName={accesses.find((access) => access.id === service.accessId)?.name}
-              canManage={isAdmin}
-              onEdit={(item) => {
-                setEditing(item);
-                setFormOpen(true);
-              }}
-              onDelete={deleteRenewalService}
-            />
-          ))}
-        </div>
+        <>
+          <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+            {paginatedServices.map((service) => (
+              <RenewalCard
+                key={service.id}
+                service={service}
+                accessName={accesses.find((access) => access.id === service.accessId)?.name}
+                canManage={isAdmin}
+                onEdit={(item) => {
+                  setEditing(item);
+                  setFormOpen(true);
+                }}
+                onDelete={deleteRenewalService}
+              />
+            ))}
+          </div>
+          <ListPagination
+            page={page}
+            pageSize={pageSize}
+            totalItems={filteredServices.length}
+            onPageChange={setPage}
+            onPageSizeChange={setPageSize}
+          />
+        </>
       )}
 
       {isAdmin && (

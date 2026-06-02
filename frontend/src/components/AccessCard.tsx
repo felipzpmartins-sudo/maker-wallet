@@ -2,6 +2,7 @@ import { useState } from "react";
 import { ExternalLink, Pencil, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { PasswordField } from "@/components/PasswordField";
+import { SensitiveField } from "@/components/SensitiveField";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -108,10 +109,25 @@ export function AccessCard({ access, departments = [], canManage, onEdit, onDele
         <Field label="Local" value={access.location} />
         <Field label="Arquivo Keystore" value={access.keystoreFile} />
         <Field label="ID" value={access.credentialId} />
-        <Field label="Secret" value={access.credentialSecret} />
-        <Field label="Token" value={access.credentialToken} />
         <Field label="Link de acesso" value={access.link} link />
       </div>
+
+      {(access.credentialSecret || access.credentialToken) && (
+        <div className="mt-4 grid grid-cols-1 gap-3">
+          {access.credentialSecret && (
+            <div>
+              <span className="text-xs text-muted-foreground">Secret</span>
+              <SensitiveField value={access.credentialSecret} label="Secret" className="mt-1" />
+            </div>
+          )}
+          {access.credentialToken && (
+            <div>
+              <span className="text-xs text-muted-foreground">Token</span>
+              <SensitiveField value={access.credentialToken} label="Token" className="mt-1" />
+            </div>
+          )}
+        </div>
+      )}
 
       <div className="mt-4">
         <span className="text-xs text-muted-foreground">Senha</span>

@@ -161,7 +161,7 @@ function mapApiAccessType(type: ApiAccess["type"]): AccessType {
   if (type === "PLATFORM") return "platform";
   if (type === "KEYSTORE") return "keystore";
   if (type === "WIFI") return "wifi";
-  if (type === "SANKHYA") return "sankhya";
+  if (type === "SANKHYA") return "api_integration";
   return "ssh_ftp";
 }
 
@@ -170,7 +170,7 @@ function mapAccessTypeToApi(type: AccessType): ApiAccess["type"] {
   if (type === "platform") return "PLATFORM";
   if (type === "keystore") return "KEYSTORE";
   if (type === "wifi") return "WIFI";
-  if (type === "sankhya") return "SANKHYA";
+  if (type === "api_integration") return "SANKHYA";
   return "SSH";
 }
 

@@ -201,11 +201,18 @@ export function AccessForm({
           )}
 
           {type === "email" && (
-            <Input
-              placeholder="E-mail"
-              value={draft.email ?? ""}
-              onChange={(e) => set({ email: e.target.value })}
-            />
+            <>
+              <Input
+                placeholder="E-mail"
+                value={draft.email ?? ""}
+                onChange={(e) => set({ email: e.target.value })}
+              />
+              <Input
+                placeholder="URL da caixa de entrada"
+                value={draft.link ?? ""}
+                onChange={(e) => set({ link: e.target.value })}
+              />
+            </>
           )}
 
           {type === "platform" && (
@@ -228,7 +235,7 @@ export function AccessForm({
             </>
           )}
 
-          {type === "sankhya" && (
+          {type === "api_integration" && (
             <>
               <Input
                 placeholder="Host"
