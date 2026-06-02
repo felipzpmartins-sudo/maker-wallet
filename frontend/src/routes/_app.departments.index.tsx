@@ -1,9 +1,10 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { ArrowRight, KeyRound, Plus, Search, ShieldX } from "lucide-react";
 import { AccessCard } from "@/components/AccessCard";
 import { AccessForm } from "@/components/AccessForm";
 import { ConfidentialBadge } from "@/components/ConfidentialBadge";
+import { ListPagination } from "@/components/ListPagination";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -41,6 +42,8 @@ function DepartmentsPage() {
   const [areaFilter, setAreaFilter] = useState("all");
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState<AccessEntry | null>(null);
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
   const sortedDepartments = useMemo(() => sortByName(departments), [departments]);
   const sortedVisibleDepartments = useMemo(
     () => sortByName(visibleDepartments),
@@ -73,6 +76,15 @@ function DepartmentsPage() {
       }),
     );
   }, [accesses, areaFilter, search]);
+
+  useEffect(() => {
+    setPage(1);
+  }, [areaFilter, pageSize, search]);
+
+  const paginatedAccesses = useMemo(
+    () => filteredAccesses.slice((page - 1) * pageSize, page * pageSize),
+    [filteredAccesses, page, pageSize],
+  );
 
   if (currentUser?.role === "pending") {
     return (
@@ -189,21 +201,30 @@ function DepartmentsPage() {
               Nenhum acesso encontrado para este filtro.
             </div>
           ) : (
-            <div className="grid grid-cols-1 gap-4">
-              {filteredAccesses.map((access) => (
-                <AccessCard
-                  key={access.id}
-                  access={access}
-                  departments={departments}
-                  canManage={isAdmin}
-                  onEdit={(selectedAccess) => {
-                    setEditing(selectedAccess);
-                    setFormOpen(true);
-                  }}
-                  onDelete={deleteAccess}
-                />
-              ))}
-            </div>
+            <>
+              <div className="grid grid-cols-1 gap-4">
+                {paginatedAccesses.map((access) => (
+                  <AccessCard
+                    key={access.id}
+                    access={access}
+                    departments={departments}
+                    canManage={isAdmin}
+                    onEdit={(selectedAccess) => {
+                      setEditing(selectedAccess);
+                      setFormOpen(true);
+                    }}
+                    onDelete={deleteAccess}
+                  />
+                ))}
+              </div>
+              <ListPagination
+                page={page}
+                pageSize={pageSize}
+                totalItems={filteredAccesses.length}
+                onPageChange={setPage}
+                onPageSizeChange={setPageSize}
+              />
+            </>
           )}
 
           <AccessForm
