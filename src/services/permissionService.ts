@@ -8,21 +8,30 @@ export async function canAccess(
   accessItemId: string,
   action: PermissionAction
 ) {
-  if (user.role === UserRole.ADMIN) {
+  if (user.totalAccess) {
     return true;
   }
 
   const accessItem = await prisma.accessItem.findUnique({
     where: { id: accessItemId },
-    select: { createdById: true }
+    select: { createdById: true, departmentIds: true }
   });
 
   if (!accessItem) {
     return false;
   }
 
-  if (accessItem.createdById === user.id && user.role === UserRole.USER) {
+  if (accessItem.createdById === user.id && user.role !== UserRole.RESTRICTED) {
     return true;
+  }
+
+  const hasDepartmentAccess = accessItem.departmentIds.length
+    ? accessItem.departmentIds.some((departmentId) => user.allowedDepartments.includes(departmentId))
+    : user.allowedDepartments.includes("outros");
+
+  if (hasDepartmentAccess) {
+    if (action === "view") return true;
+    return user.role === UserRole.ADMIN;
   }
 
   const permission = await prisma.accessPermission.findUnique({

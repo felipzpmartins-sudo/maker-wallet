@@ -35,6 +35,20 @@ type AccessQuery = {
   limit: number;
 };
 
+function buildDepartmentAccessFilter(user: Express.User): Prisma.AccessItemWhereInput[] {
+  const filters: Prisma.AccessItemWhereInput[] = [];
+
+  if (user.allowedDepartments.length > 0) {
+    filters.push({ departmentIds: { hasSome: user.allowedDepartments } });
+  }
+
+  if (user.allowedDepartments.includes("outros")) {
+    filters.push({ departmentIds: { isEmpty: true } });
+  }
+
+  return filters;
+}
+
 function buildAccessData(data: Partial<AccessInput>) {
   const accessData: Prisma.AccessItemUncheckedCreateInput | Prisma.AccessItemUncheckedUpdateInput = {
     type: data.type,
@@ -84,7 +98,7 @@ export async function createAccess(data: AccessInput, user: Express.User, ipAddr
 }
 
 export async function listAccess(query: AccessQuery, user: Express.User) {
-  if (user.role === UserRole.ADMIN && !query.userId) {
+  if (user.totalAccess && !query.userId) {
     return listAdminAccess(query);
   }
 
@@ -111,19 +125,22 @@ export async function listAccess(query: AccessQuery, user: Express.User) {
     });
   }
 
-  if (user.role !== UserRole.ADMIN) {
-    andFilters.push({
-      OR: [
-        { createdById: user.id },
-        {
-          permissions: {
-            some: {
-              userId: user.id,
-              canView: true
-            }
+  if (!user.totalAccess) {
+    const visibilityFilters: Prisma.AccessItemWhereInput[] = [
+      { createdById: user.id },
+      {
+        permissions: {
+          some: {
+            userId: user.id,
+            canView: true
           }
         }
-      ]
+      },
+      ...buildDepartmentAccessFilter(user)
+    ];
+
+    andFilters.push({
+      OR: visibilityFilters
     });
   }
 
@@ -363,7 +380,7 @@ export async function setPermission(
   user: Express.User,
   ipAddress?: string
 ) {
-  const allowed = user.role === UserRole.ADMIN || (await canAccess(user, accessItemId, "edit"));
+  const allowed = user.totalAccess || (await canAccess(user, accessItemId, "edit"));
 
   if (!allowed) {
     throw new AppError(403, "Access denied");

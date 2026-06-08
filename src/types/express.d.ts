@@ -6,6 +6,9 @@ declare global {
       id: string;
       role: UserRole;
       email: string;
+      allowedDepartments: string[];
+      totalAccess: boolean;
+      canManagePermissions: boolean;
     }
 
     interface Request {

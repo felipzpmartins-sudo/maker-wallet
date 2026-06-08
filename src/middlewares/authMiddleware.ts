@@ -15,7 +15,14 @@ export async function authMiddleware(request: Request, _response: Response, next
     const payload = verifyToken(token);
     const user = await prisma.user.findUnique({
       where: { id: payload.sub },
-      select: { id: true, role: true, email: true }
+      select: {
+        id: true,
+        role: true,
+        email: true,
+        allowedDepartments: true,
+        totalAccess: true,
+        canManagePermissions: true
+      }
     });
 
     if (!user) {
@@ -25,7 +32,10 @@ export async function authMiddleware(request: Request, _response: Response, next
     request.user = {
       id: user.id,
       role: user.role,
-      email: user.email
+      email: user.email,
+      allowedDepartments: user.allowedDepartments,
+      totalAccess: user.totalAccess,
+      canManagePermissions: user.canManagePermissions
     };
 
     return next();
