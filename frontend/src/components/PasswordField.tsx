@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Check, Copy, Eye, EyeOff } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -33,6 +33,21 @@ export function PasswordField({ accessId, password, label = "Senha", className }
   const [revealedPassword, setRevealedPassword] = useState("");
 
   const displayPassword = revealedPassword || password;
+
+  useEffect(() => {
+    const hideWhenVaultLocks = () => {
+      if (!isVaultUnlocked()) {
+        setVisible(false);
+        setRevealedPassword("");
+      }
+    };
+
+    window.addEventListener("maker-wallet:vault-unlock-changed", hideWhenVaultLocks);
+
+    return () => {
+      window.removeEventListener("maker-wallet:vault-unlock-changed", hideWhenVaultLocks);
+    };
+  }, []);
 
   const copy = async () => {
     try {
