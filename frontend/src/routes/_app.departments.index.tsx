@@ -93,7 +93,7 @@ function DepartmentsPage() {
         <h2 className="font-display text-xl font-semibold">Acesso aguardando liberacao</h2>
         <p className="text-sm text-muted-foreground">
           Sua conta foi criada e esta aguardando liberacao de acesso por um administrador. Assim que
-          for aprovado, seus departamentos aparecerao aqui.
+          for aprovado, seus acessos aparecerao aqui.
         </p>
       </div>
     );
@@ -121,7 +121,7 @@ function DepartmentsPage() {
 
       {!isCeo && visibleDepartments.length === 0 ? (
         <div className="rounded-2xl border border-border bg-card p-10 text-center text-sm text-muted-foreground">
-          Nenhum departamento liberado para voce.
+          Nenhum acesso liberado para voce.
         </div>
       ) : !isCeo ? (
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">

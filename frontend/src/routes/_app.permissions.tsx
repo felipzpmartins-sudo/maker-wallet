@@ -1,11 +1,17 @@
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
+import { Search } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/lib/auth-context";
 import { useAdminGuard } from "@/hooks/use-admin-guard";
-import { ROLE_LABELS } from "@/lib/mock-data";
+import {
+  ACCESS_TYPE_LABELS,
+  ROLE_LABELS,
+  getAccessDepartmentIds,
+} from "@/lib/mock-data";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
 import { sortByName } from "@/lib/utils";
 
 export const Route = createFileRoute("/_app/permissions")({
@@ -14,64 +20,172 @@ export const Route = createFileRoute("/_app/permissions")({
 
 function PermissionsPage() {
   const allowed = useAdminGuard("permissions");
-  const { users, departments, currentUser, isCeo, updateUser } = useAuth();
-  const sortedDepartments = useMemo(() => sortByName(departments), [departments]);
+  const {
+    users,
+    accesses,
+    departments,
+    currentUser,
+    isCeo,
+    updateUser,
+    listUserAccessIds,
+    setAccessPermission,
+  } = useAuth();
+  const [search, setSearch] = useState("");
+  const [accessIdsByUser, setAccessIdsByUser] = useState<Record<string, string[]>>({});
+  const [loadingPermissions, setLoadingPermissions] = useState(false);
+  const [pendingKeys, setPendingKeys] = useState<string[]>([]);
+
+  const managed = useMemo(
+    () =>
+      sortByName(
+        users.filter((u) => {
+          if (u.role === "ceo" || u.role === "pending") return false;
+          if (!isCeo && u.id === currentUser?.id) return false;
+          return u.role === "user" || u.role === "admin";
+        }),
+      ),
+    [currentUser?.id, isCeo, users],
+  );
+
+  const managedUserIds = useMemo(() => managed.map((u) => u.id).join("|"), [managed]);
+  const departmentById = useMemo(
+    () => new Map(departments.map((department) => [department.id, department.name])),
+    [departments],
+  );
+  const filteredAccesses = useMemo(() => {
+    const query = search.trim().toLowerCase();
+    return sortByName(
+      accesses.filter((access) => {
+        if (!query) return true;
+        const departmentNames = getAccessDepartmentIds(access)
+          .map((departmentId) => departmentById.get(departmentId))
+          .filter(Boolean);
+        return [
+          access.name,
+          access.username,
+          access.email,
+          access.link,
+          access.host,
+          access.appName,
+          access.networkName,
+          ACCESS_TYPE_LABELS[access.type],
+          ...departmentNames,
+        ]
+          .filter(Boolean)
+          .some((value) => value!.toLowerCase().includes(query));
+      }),
+    );
+  }, [accesses, departmentById, search]);
+
+  useEffect(() => {
+    if (!managed.length) {
+      setAccessIdsByUser({});
+      return;
+    }
+
+    let cancelled = false;
+    setLoadingPermissions(true);
+
+    Promise.all(
+      managed.map(async (user) => {
+        const ids = await listUserAccessIds(user.id);
+        return [user.id, ids] as const;
+      }),
+    )
+      .then((entries) => {
+        if (cancelled) return;
+        setAccessIdsByUser(Object.fromEntries(entries));
+      })
+      .catch(() => {
+        if (!cancelled) toast.error("Nao foi possivel carregar as permissoes.");
+      })
+      .finally(() => {
+        if (!cancelled) setLoadingPermissions(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [listUserAccessIds, managed, managedUserIds]);
 
   if (!allowed) return null;
 
-  const managed = sortByName(
-    users.filter((u) => {
-      if (u.role === "ceo" || u.role === "pending") return false;
-      if (!isCeo && u.id === currentUser?.id) return false;
-      return u.role === "user" || u.role === "admin";
-    }),
-  );
+  const toggleAccess = async (userId: string, accessId: string, checked: boolean) => {
+    const key = `${userId}:${accessId}`;
+    const previous = accessIdsByUser[userId] ?? [];
+    const next = checked
+      ? Array.from(new Set([...previous, accessId]))
+      : previous.filter((id) => id !== accessId);
 
-  const toggleDept = (userId: string, deptId: string, current: string[]) => {
-    const next = current.includes(deptId)
-      ? current.filter((d) => d !== deptId)
-      : [...current, deptId];
-    updateUser(userId, { allowedDepartments: next });
+    setAccessIdsByUser((current) => ({ ...current, [userId]: next }));
+    setPendingKeys((current) => [...current, key]);
+
+    try {
+      await setAccessPermission(accessId, userId, { canView: checked });
+      toast.success(checked ? "Acesso liberado" : "Acesso removido");
+    } catch {
+      setAccessIdsByUser((current) => ({ ...current, [userId]: previous }));
+      toast.error("Nao foi possivel atualizar este acesso.");
+    } finally {
+      setPendingKeys((current) => current.filter((item) => item !== key));
+    }
   };
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="font-display text-2xl font-semibold">Permissões</h1>
-        <p className="text-sm text-muted-foreground">
-          Libere quais departamentos cada usuário pode visualizar.
-        </p>
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <h1 className="font-display text-2xl font-semibold">Permissoes</h1>
+          <p className="text-sm text-muted-foreground">
+            Libere acessos item a item para cada usuario.
+          </p>
+        </div>
+        <div className="relative w-full sm:w-80">
+          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            className="pl-9"
+            value={search}
+            onChange={(event) => setSearch(event.target.value)}
+            placeholder="Pesquisar acesso"
+          />
+        </div>
       </div>
 
       {managed.length === 0 ? (
         <div className="rounded-2xl border border-border bg-card p-10 text-center text-sm text-muted-foreground">
-          Nenhum usuário aprovado para gerenciar.
+          Nenhum usuario aprovado para gerenciar.
+        </div>
+      ) : accesses.length === 0 ? (
+        <div className="rounded-2xl border border-border bg-card p-10 text-center text-sm text-muted-foreground">
+          Nenhum acesso cadastrado.
         </div>
       ) : (
         <div className="space-y-4">
-          {managed.map((u) => {
-            const total = u.role === "ceo" || !!u.totalAccess;
+          {managed.map((user) => {
+            const total = user.role === "ceo" || !!user.totalAccess;
+            const userAccessIds = accessIdsByUser[user.id] ?? [];
+
             return (
-              <div key={u.id} className="rounded-2xl border border-border bg-card p-5">
+              <div key={user.id} className="rounded-2xl border border-border bg-card p-5">
                 <div className="flex flex-wrap items-center justify-between gap-3">
                   <div>
-                    <p className="font-medium">{u.name}</p>
-                    <p className="text-sm text-muted-foreground">{u.email}</p>
+                    <p className="font-medium">{user.name}</p>
+                    <p className="text-sm text-muted-foreground">{user.email}</p>
                   </div>
                   <div className="flex items-center gap-3">
-                    <Badge variant="secondary">{ROLE_LABELS[u.role]}</Badge>
+                    <Badge variant="secondary">{ROLE_LABELS[user.role]}</Badge>
                     {isCeo && (
                       <label className="flex items-center gap-2 text-sm">
                         Acesso total
                         <Switch
                           checked={total}
                           onCheckedChange={(checked) => {
-                            updateUser(u.id, {
+                            updateUser(user.id, {
                               totalAccess: checked,
-                              allowedDepartments: checked ? sortedDepartments.map((d) => d.id) : [],
+                              allowedDepartments: [],
                             });
                             toast(checked ? "Acesso total liberado" : "Acesso total removido", {
-                              description: u.name,
+                              description: user.name,
                             });
                           }}
                         />
@@ -80,23 +194,47 @@ function PermissionsPage() {
                   </div>
                 </div>
 
-                <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4">
-                  {sortedDepartments.map((d) => {
-                    const checked = total || u.allowedDepartments.includes(d.id);
-                    return (
-                      <label
-                        key={d.id}
-                        className="flex items-center justify-between gap-2 rounded-lg border border-border bg-background/40 px-3 py-2 text-sm"
-                      >
-                        <span>{d.name}</span>
-                        <Switch
-                          checked={checked}
-                          disabled={total}
-                          onCheckedChange={() => toggleDept(u.id, d.id, u.allowedDepartments)}
-                        />
-                      </label>
-                    );
-                  })}
+                <div className="mt-4 space-y-2">
+                  {loadingPermissions ? (
+                    <div className="rounded-lg border border-border bg-background/40 px-3 py-3 text-sm text-muted-foreground">
+                      Carregando permissoes...
+                    </div>
+                  ) : filteredAccesses.length === 0 ? (
+                    <div className="rounded-lg border border-border bg-background/40 px-3 py-3 text-sm text-muted-foreground">
+                      Nenhum acesso encontrado para esta busca.
+                    </div>
+                  ) : (
+                    filteredAccesses.map((access) => {
+                      const key = `${user.id}:${access.id}`;
+                      const checked = total || userAccessIds.includes(access.id);
+                      const departmentNames = getAccessDepartmentIds(access)
+                        .map((departmentId) => departmentById.get(departmentId))
+                        .filter(Boolean)
+                        .join(", ");
+
+                      return (
+                        <label
+                          key={access.id}
+                          className="flex items-center justify-between gap-3 rounded-lg border border-border bg-background/40 px-3 py-2 text-sm"
+                        >
+                          <span className="min-w-0">
+                            <span className="block truncate font-medium">{access.name}</span>
+                            <span className="block truncate text-xs text-muted-foreground">
+                              {ACCESS_TYPE_LABELS[access.type]}
+                              {departmentNames ? ` - ${departmentNames}` : ""}
+                            </span>
+                          </span>
+                          <Switch
+                            checked={checked}
+                            disabled={total || pendingKeys.includes(key)}
+                            onCheckedChange={(nextChecked) =>
+                              toggleAccess(user.id, access.id, nextChecked)
+                            }
+                          />
+                        </label>
+                      );
+                    })
+                  )}
                 </div>
               </div>
             );

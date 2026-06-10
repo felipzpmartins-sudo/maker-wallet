@@ -130,7 +130,7 @@ function UsersPage() {
 
                     {u.role === "admin" && (
                       <label className="flex items-center gap-2 rounded-md border border-border px-3 py-2 text-sm">
-                        Pode liberar áreas
+                        Pode liberar acessos
                         <Switch
                           checked={!!u.canManagePermissions}
                           onCheckedChange={(checked) => {

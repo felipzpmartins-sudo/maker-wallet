@@ -35,20 +35,6 @@ type AccessQuery = {
   limit: number;
 };
 
-function buildDepartmentAccessFilter(user: Express.User): Prisma.AccessItemWhereInput[] {
-  const filters: Prisma.AccessItemWhereInput[] = [];
-
-  if (user.allowedDepartments.length > 0) {
-    filters.push({ departmentIds: { hasSome: user.allowedDepartments } });
-  }
-
-  if (user.allowedDepartments.includes("outros")) {
-    filters.push({ departmentIds: { isEmpty: true } });
-  }
-
-  return filters;
-}
-
 function buildAccessData(data: Partial<AccessInput>) {
   const accessData: Prisma.AccessItemUncheckedCreateInput | Prisma.AccessItemUncheckedUpdateInput = {
     type: data.type,
@@ -98,8 +84,14 @@ export async function createAccess(data: AccessInput, user: Express.User, ipAddr
 }
 
 export async function listAccess(query: AccessQuery, user: Express.User) {
-  if (user.totalAccess && !query.userId) {
+  const canManageItemPermissions = user.totalAccess || user.canManagePermissions;
+
+  if (canManageItemPermissions && !query.userId) {
     return listAdminAccess(query);
+  }
+
+  if (query.userId && query.userId !== user.id && !canManageItemPermissions) {
+    throw new AppError(403, "Access denied");
   }
 
   const andFilters: Prisma.AccessItemWhereInput[] = [];
@@ -125,7 +117,7 @@ export async function listAccess(query: AccessQuery, user: Express.User) {
     });
   }
 
-  if (!user.totalAccess) {
+  if (!canManageItemPermissions) {
     const visibilityFilters: Prisma.AccessItemWhereInput[] = [
       { createdById: user.id },
       {
@@ -135,8 +127,7 @@ export async function listAccess(query: AccessQuery, user: Express.User) {
             canView: true
           }
         }
-      },
-      ...buildDepartmentAccessFilter(user)
+      }
     ];
 
     andFilters.push({
@@ -380,7 +371,8 @@ export async function setPermission(
   user: Express.User,
   ipAddress?: string
 ) {
-  const allowed = user.totalAccess || (await canAccess(user, accessItemId, "edit"));
+  const allowed =
+    user.totalAccess || user.canManagePermissions || (await canAccess(user, accessItemId, "edit"));
 
   if (!allowed) {
     throw new AppError(403, "Access denied");

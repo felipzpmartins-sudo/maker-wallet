@@ -77,13 +77,13 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       {
         name: "description",
         content:
-          "Plataforma segura para guardar acessos, senhas e contas da Maker, com controle por departamento.",
+          "Plataforma segura para guardar acessos, senhas e contas da Maker, com controle por item.",
       },
       { name: "author", content: "Maker" },
       { property: "og:title", content: "Maker Wallet" },
       {
         property: "og:description",
-        content: "Gestão segura de acessos e senhas por departamento.",
+        content: "Gestao segura de acessos e senhas por item.",
       },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },

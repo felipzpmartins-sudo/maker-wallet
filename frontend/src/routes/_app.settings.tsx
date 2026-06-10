@@ -92,7 +92,7 @@ function SettingsPage() {
         <div>
           <h1 className="font-display text-2xl font-semibold">Configurações</h1>
           <p className="text-sm text-muted-foreground">
-            Gerencie departamentos e níveis de acesso.
+            Gerencie departamentos e niveis de acesso.
           </p>
         </div>
         <ConfidentialBadge />
@@ -165,8 +165,8 @@ function SettingsPage() {
                     <AlertDialogHeader>
                       <AlertDialogTitle>Excluir departamento?</AlertDialogTitle>
                       <AlertDialogDescription>
-                        O departamento "{d.name}" sera removido das permissoes dos usuarios e da
-                        lista de departamentos. Esta acao nao pode ser desfeita.
+                        O departamento "{d.name}" sera removido da lista de departamentos. Esta
+                        acao nao pode ser desfeita.
                       </AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter>
@@ -198,14 +198,14 @@ function SettingsPage() {
         <ul className="mt-4 space-y-3 text-sm">
           <li>
             <span className="font-medium text-primary">{ROLE_LABELS.ceo}:</span> acesso total a
-            todos os departamentos e configurações.
+            todos os acessos e configuracoes.
           </li>
           <li>
             <span className="font-medium text-primary">{ROLE_LABELS.admin}:</span> acesso aos
-            setores e permissões definidos pelo CEO.
+            itens e permissoes definidos pelo CEO.
           </li>
           <li>
-            <span className="font-medium">{ROLE_LABELS.user}:</span> acesso apenas aos departamentos
+            <span className="font-medium">{ROLE_LABELS.user}:</span> acesso apenas aos itens
             liberados.
           </li>
           <li>

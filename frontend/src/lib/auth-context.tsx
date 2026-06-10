@@ -30,6 +30,12 @@ interface AuthContextValue {
   deleteDepartment: (id: string) => Promise<void>;
   saveAccess: (access: AccessEntry) => Promise<void>;
   deleteAccess: (id: string) => Promise<void>;
+  listUserAccessIds: (userId: string) => Promise<string[]>;
+  setAccessPermission: (
+    accessId: string,
+    userId: string,
+    permission: { canView: boolean; canEdit?: boolean; canDelete?: boolean },
+  ) => Promise<void>;
   revealAccessPassword: (id: string, mfaCode: string) => Promise<string>;
   setupMfa: () => Promise<{ secret: string; otpauthUrl: string }>;
   confirmMfa: (code: string) => Promise<void>;
@@ -490,6 +496,42 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     throw new Error("Sessao expirada. Faca login novamente.");
   }, [syncAccessesFromApi, token]);
 
+  const listUserAccessIds = useCallback(async (userId: string) => {
+    if (!token) {
+      throw new Error("Sessao expirada. Faca login novamente.");
+    }
+
+    const result = await apiRequest<ApiPaginated<ApiAccess>>(
+      `/access?limit=100&userId=${encodeURIComponent(userId)}`,
+      { token },
+    );
+    return result.items.map((access) => access.id);
+  }, [token]);
+
+  const setAccessPermission = useCallback(
+    async (
+      accessId: string,
+      userId: string,
+      permission: { canView: boolean; canEdit?: boolean; canDelete?: boolean },
+    ) => {
+      if (!token) {
+        throw new Error("Sessao expirada. Faca login novamente.");
+      }
+
+      await apiRequest(`/access/${accessId}/permissions`, {
+        method: "POST",
+        token,
+        body: JSON.stringify({
+          userId,
+          canView: permission.canView,
+          canEdit: permission.canEdit ?? false,
+          canDelete: permission.canDelete ?? false,
+        }),
+      });
+    },
+    [token],
+  );
+
   const revealAccessPassword = useCallback(async (id: string, mfaCode: string) => {
     if (!token) {
       throw new Error("Sessao expirada. Faca login novamente.");
@@ -597,9 +639,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (!currentUser) return false;
       if (currentUser.role === "pending") return false;
       if (currentUser.role === "ceo" || currentUser.totalAccess) return true;
-      return currentUser.allowedDepartments.includes(departmentId);
+      return accesses.some((access) => getAccessDepartmentIds(access).includes(departmentId));
     },
-    [currentUser],
+    [accesses, currentUser],
   );
 
   const visibleDepartments = departments.filter((d) => canAccessDepartment(d.id));
@@ -621,6 +663,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         deleteDepartment,
         saveAccess,
         deleteAccess,
+        listUserAccessIds,
+        setAccessPermission,
         revealAccessPassword,
         setupMfa,
         confirmMfa,

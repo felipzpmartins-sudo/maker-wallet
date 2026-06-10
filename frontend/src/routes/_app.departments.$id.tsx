@@ -89,7 +89,7 @@ function DepartmentDetailPage() {
         <ShieldX className="h-12 w-12 text-warning" />
         <h2 className="font-display text-xl font-semibold">Sem permissão</h2>
         <p className="text-sm text-muted-foreground">
-          Você não tem acesso a este departamento. Solicite a um administrador.
+          Você não tem nenhum acesso liberado neste departamento.
         </p>
         <Button asChild variant="outline">
           <Link to="/departments">Voltar aos departamentos</Link>
