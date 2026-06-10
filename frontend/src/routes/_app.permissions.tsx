@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
-import { Search } from "lucide-react";
+import { ChevronDown, Search } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/lib/auth-context";
 import { useAdminGuard } from "@/hooks/use-admin-guard";
@@ -11,6 +11,8 @@ import {
 } from "@/lib/mock-data";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Collapsible, CollapsibleContent } from "@/components/ui/collapsible";
 import { Input } from "@/components/ui/input";
 import { sortByName } from "@/lib/utils";
 
@@ -34,6 +36,7 @@ function PermissionsPage() {
   const [accessIdsByUser, setAccessIdsByUser] = useState<Record<string, string[]>>({});
   const [loadingPermissions, setLoadingPermissions] = useState(false);
   const [pendingKeys, setPendingKeys] = useState<string[]>([]);
+  const [openUserIds, setOpenUserIds] = useState<string[]>([]);
 
   const managed = useMemo(
     () =>
@@ -110,6 +113,12 @@ function PermissionsPage() {
 
   if (!allowed) return null;
 
+  const toggleUserOpen = (userId: string, open: boolean) => {
+    setOpenUserIds((current) =>
+      open ? Array.from(new Set([...current, userId])) : current.filter((id) => id !== userId),
+    );
+  };
+
   const toggleAccess = async (userId: string, accessId: string, checked: boolean) => {
     const key = `${userId}:${accessId}`;
     const previous = accessIdsByUser[userId] ?? [];
@@ -164,16 +173,39 @@ function PermissionsPage() {
           {managed.map((user) => {
             const total = user.role === "ceo" || !!user.totalAccess;
             const userAccessIds = accessIdsByUser[user.id] ?? [];
+            const isOpen = openUserIds.includes(user.id);
 
             return (
-              <div key={user.id} className="rounded-2xl border border-border bg-card p-5">
-                <div className="flex flex-wrap items-center justify-between gap-3">
-                  <div>
-                    <p className="font-medium">{user.name}</p>
-                    <p className="text-sm text-muted-foreground">{user.email}</p>
-                  </div>
-                  <div className="flex items-center gap-3">
+              <Collapsible
+                key={user.id}
+                open={isOpen}
+                onOpenChange={(open) => toggleUserOpen(user.id, open)}
+                className="rounded-2xl border border-border bg-card"
+              >
+                <div className="flex flex-wrap items-center justify-between gap-3 p-5">
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    className="-ml-2 h-auto min-w-0 justify-start px-2 py-1 text-left hover:bg-transparent"
+                    onClick={() => toggleUserOpen(user.id, !isOpen)}
+                    aria-expanded={isOpen}
+                  >
+                    <ChevronDown
+                      className={`h-4 w-4 transition-transform ${isOpen ? "" : "-rotate-90"}`}
+                    />
+                    <span className="min-w-0">
+                      <span className="block truncate font-medium">{user.name}</span>
+                      <span className="block truncate text-sm font-normal text-muted-foreground">
+                        {user.email}
+                      </span>
+                    </span>
+                  </Button>
+
+                  <div className="flex flex-wrap items-center justify-end gap-3">
                     <Badge variant="secondary">{ROLE_LABELS[user.role]}</Badge>
+                    <Badge variant="outline">
+                      {total ? "Todos os acessos" : `${userAccessIds.length} acesso(s)`}
+                    </Badge>
                     {isCeo && (
                       <label className="flex items-center gap-2 text-sm">
                         Acesso total
@@ -194,49 +226,51 @@ function PermissionsPage() {
                   </div>
                 </div>
 
-                <div className="mt-4 space-y-2">
-                  {loadingPermissions ? (
-                    <div className="rounded-lg border border-border bg-background/40 px-3 py-3 text-sm text-muted-foreground">
-                      Carregando permissoes...
-                    </div>
-                  ) : filteredAccesses.length === 0 ? (
-                    <div className="rounded-lg border border-border bg-background/40 px-3 py-3 text-sm text-muted-foreground">
-                      Nenhum acesso encontrado para esta busca.
-                    </div>
-                  ) : (
-                    filteredAccesses.map((access) => {
-                      const key = `${user.id}:${access.id}`;
-                      const checked = total || userAccessIds.includes(access.id);
-                      const departmentNames = getAccessDepartmentIds(access)
-                        .map((departmentId) => departmentById.get(departmentId))
-                        .filter(Boolean)
-                        .join(", ");
+                <CollapsibleContent>
+                  <div className="space-y-2 border-t border-border p-5 pt-4">
+                    {loadingPermissions ? (
+                      <div className="rounded-lg border border-border bg-background/40 px-3 py-3 text-sm text-muted-foreground">
+                        Carregando permissoes...
+                      </div>
+                    ) : filteredAccesses.length === 0 ? (
+                      <div className="rounded-lg border border-border bg-background/40 px-3 py-3 text-sm text-muted-foreground">
+                        Nenhum acesso encontrado para esta busca.
+                      </div>
+                    ) : (
+                      filteredAccesses.map((access) => {
+                        const key = `${user.id}:${access.id}`;
+                        const checked = total || userAccessIds.includes(access.id);
+                        const departmentNames = getAccessDepartmentIds(access)
+                          .map((departmentId) => departmentById.get(departmentId))
+                          .filter(Boolean)
+                          .join(", ");
 
-                      return (
-                        <label
-                          key={access.id}
-                          className="flex items-center justify-between gap-3 rounded-lg border border-border bg-background/40 px-3 py-2 text-sm"
-                        >
-                          <span className="min-w-0">
-                            <span className="block truncate font-medium">{access.name}</span>
-                            <span className="block truncate text-xs text-muted-foreground">
-                              {ACCESS_TYPE_LABELS[access.type]}
-                              {departmentNames ? ` - ${departmentNames}` : ""}
+                        return (
+                          <label
+                            key={access.id}
+                            className="flex items-center justify-between gap-3 rounded-lg border border-border bg-background/40 px-3 py-2 text-sm"
+                          >
+                            <span className="min-w-0">
+                              <span className="block truncate font-medium">{access.name}</span>
+                              <span className="block truncate text-xs text-muted-foreground">
+                                {ACCESS_TYPE_LABELS[access.type]}
+                                {departmentNames ? ` - ${departmentNames}` : ""}
+                              </span>
                             </span>
-                          </span>
-                          <Switch
-                            checked={checked}
-                            disabled={total || pendingKeys.includes(key)}
-                            onCheckedChange={(nextChecked) =>
-                              toggleAccess(user.id, access.id, nextChecked)
-                            }
-                          />
-                        </label>
-                      );
-                    })
-                  )}
-                </div>
-              </div>
+                            <Switch
+                              checked={checked}
+                              disabled={total || pendingKeys.includes(key)}
+                              onCheckedChange={(nextChecked) =>
+                                toggleAccess(user.id, access.id, nextChecked)
+                              }
+                            />
+                          </label>
+                        );
+                      })
+                    )}
+                  </div>
+                </CollapsibleContent>
+              </Collapsible>
             );
           })}
         </div>
