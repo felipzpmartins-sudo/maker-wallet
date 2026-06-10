@@ -618,13 +618,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     void syncAccessesFromApi(token);
     void syncRenewalServicesFromApi(token);
     if (isAdmin) void syncUsersFromApi(token);
-    const interval = window.setInterval(() => {
-      void syncDepartmentsFromApi(token);
-      void syncAccessesFromApi(token);
-      void syncRenewalServicesFromApi(token);
-      if (isAdmin) void syncUsersFromApi(token);
-    }, 10000);
-    return () => window.clearInterval(interval);
   }, [
     isAdmin,
     syncAccessesFromApi,

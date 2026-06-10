@@ -8,10 +8,6 @@ export async function canAccess(
   accessItemId: string,
   action: PermissionAction
 ) {
-  if (user.totalAccess) {
-    return true;
-  }
-
   const accessItem = await prisma.accessItem.findUnique({
     where: { id: accessItemId },
     select: { createdById: true }
@@ -19,10 +15,6 @@ export async function canAccess(
 
   if (!accessItem) {
     return false;
-  }
-
-  if (accessItem.createdById === user.id && user.role !== UserRole.RESTRICTED) {
-    return true;
   }
 
   const permission = await prisma.accessPermission.findUnique({
@@ -33,6 +25,18 @@ export async function canAccess(
       }
     }
   });
+
+  if (user.totalAccess) {
+    return permission ? permission.canView : true;
+  }
+
+  if (permission && !permission.canView && !permission.canEdit && !permission.canDelete) {
+    return false;
+  }
+
+  if (accessItem.createdById === user.id && user.role !== UserRole.RESTRICTED) {
+    return true;
+  }
 
   if (!permission) {
     return false;

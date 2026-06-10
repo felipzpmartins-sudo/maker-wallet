@@ -203,9 +203,7 @@ function PermissionsPage() {
 
                   <div className="flex flex-wrap items-center justify-end gap-3">
                     <Badge variant="secondary">{ROLE_LABELS[user.role]}</Badge>
-                    <Badge variant="outline">
-                      {total ? "Todos os acessos" : `${userAccessIds.length} acesso(s)`}
-                    </Badge>
+                    <Badge variant="outline">{userAccessIds.length} acesso(s)</Badge>
                     {isCeo && (
                       <label className="flex items-center gap-2 text-sm">
                         Acesso total
@@ -216,6 +214,10 @@ function PermissionsPage() {
                               totalAccess: checked,
                               allowedDepartments: [],
                             });
+                            setAccessIdsByUser((current) => ({
+                              ...current,
+                              [user.id]: checked ? accesses.map((access) => access.id) : [],
+                            }));
                             toast(checked ? "Acesso total liberado" : "Acesso total removido", {
                               description: user.name,
                             });
@@ -239,7 +241,7 @@ function PermissionsPage() {
                     ) : (
                       filteredAccesses.map((access) => {
                         const key = `${user.id}:${access.id}`;
-                        const checked = total || userAccessIds.includes(access.id);
+                        const checked = userAccessIds.includes(access.id);
                         const departmentNames = getAccessDepartmentIds(access)
                           .map((departmentId) => departmentById.get(departmentId))
                           .filter(Boolean)
@@ -259,7 +261,7 @@ function PermissionsPage() {
                             </span>
                             <Switch
                               checked={checked}
-                              disabled={total || pendingKeys.includes(key)}
+                              disabled={pendingKeys.includes(key)}
                               onCheckedChange={(nextChecked) =>
                                 toggleAccess(user.id, access.id, nextChecked)
                               }

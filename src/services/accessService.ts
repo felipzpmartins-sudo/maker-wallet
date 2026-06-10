@@ -61,6 +61,44 @@ function buildAccessData(data: Partial<AccessInput>) {
   return accessData;
 }
 
+async function buildUserVisibilityFilter(userId: string): Promise<Prisma.AccessItemWhereInput> {
+  const targetUser = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { id: true, totalAccess: true }
+  });
+
+  if (!targetUser) {
+    throw new AppError(404, "User not found");
+  }
+
+  if (targetUser.totalAccess) {
+    return {
+      NOT: {
+        permissions: {
+          some: {
+            userId,
+            canView: false
+          }
+        }
+      }
+    };
+  }
+
+  return {
+    OR: [
+      { createdById: userId },
+      {
+        permissions: {
+          some: {
+            userId,
+            canView: true
+          }
+        }
+      }
+    ]
+  };
+}
+
 export async function createAccess(data: AccessInput, user: Express.User, ipAddress?: string) {
   if (user.role === UserRole.RESTRICTED) {
     throw new AppError(403, "Restricted users cannot create access items");
@@ -87,7 +125,7 @@ export async function listAccess(query: AccessQuery, user: Express.User) {
   const canManageItemPermissions = user.totalAccess || user.canManagePermissions;
 
   if (canManageItemPermissions && !query.userId) {
-    return listAdminAccess(query);
+    return listAdminAccess(query, user.totalAccess ? user.id : undefined);
   }
 
   if (query.userId && query.userId !== user.id && !canManageItemPermissions) {
@@ -118,32 +156,11 @@ export async function listAccess(query: AccessQuery, user: Express.User) {
   }
 
   if (!canManageItemPermissions) {
-    const visibilityFilters: Prisma.AccessItemWhereInput[] = [
-      { createdById: user.id },
-      {
-        permissions: {
-          some: {
-            userId: user.id,
-            canView: true
-          }
-        }
-      }
-    ];
-
-    andFilters.push({
-      OR: visibilityFilters
-    });
+    andFilters.push(await buildUserVisibilityFilter(user.id));
   }
 
   if (query.userId) {
-    andFilters.push({
-      permissions: {
-        some: {
-          userId: query.userId,
-          canView: true
-        }
-      }
-    });
+    andFilters.push(await buildUserVisibilityFilter(query.userId));
   }
 
   const where: Prisma.AccessItemWhereInput = andFilters.length > 0 ? { AND: andFilters } : {};
@@ -171,7 +188,7 @@ export async function listAccess(query: AccessQuery, user: Express.User) {
   };
 }
 
-async function listAdminAccess(query: AccessQuery) {
+async function listAdminAccess(query: AccessQuery, deniedUserId?: string) {
   const page = query.page;
   const limit = query.limit;
   const offset = (page - 1) * limit;
@@ -194,6 +211,16 @@ async function listAdminAccess(query: AccessQuery) {
       OR "username" ILIKE ${search}
       OR "email" ILIKE ${search}
       OR "appName" ILIKE ${search}
+    )`);
+  }
+
+  if (deniedUserId) {
+    filters.push(Prisma.sql`NOT EXISTS (
+      SELECT 1
+      FROM "AccessPermission" deniedPermission
+      WHERE deniedPermission."accessItemId" = "AccessItem"."id"
+        AND deniedPermission."userId" = ${deniedUserId}
+        AND deniedPermission."canView" = false
     )`);
   }
 
