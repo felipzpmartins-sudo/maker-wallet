@@ -31,8 +31,16 @@ export const Route = createFileRoute("/_app/departments/$id")({
 function DepartmentDetailPage() {
   const { id } = Route.useParams();
   const navigate = useNavigate();
-  const { departments, accesses, canAccessDepartment, isAdmin, isCeo, saveAccess, deleteAccess } =
-    useAuth();
+  const {
+    currentUser,
+    departments,
+    accesses,
+    canAccessDepartment,
+    isAdmin,
+    isCeo,
+    saveAccess,
+    deleteAccess,
+  } = useAuth();
 
   const department = departments.find((d) => d.id === id);
   const allowed = canAccessDepartment(id);
@@ -82,6 +90,7 @@ function DepartmentDetailPage() {
   );
 
   if (!department) return null;
+  const canCreateAccess = !!currentUser && currentUser.role !== "pending";
 
   if (!allowed) {
     return (
@@ -121,7 +130,7 @@ function DepartmentDetailPage() {
         </div>
         <div className="flex items-center gap-3">
           <ConfidentialBadge />
-          {isAdmin && (
+          {canCreateAccess && (
             <Button
               onClick={() => {
                 setEditing(null);
@@ -190,7 +199,7 @@ function DepartmentDetailPage() {
         </>
       )}
 
-      {isAdmin && (
+      {canCreateAccess && (
         <AccessForm
           open={formOpen}
           onOpenChange={(open) => {

@@ -85,6 +85,7 @@ function DepartmentsPage() {
     () => filteredAccesses.slice((page - 1) * pageSize, page * pageSize),
     [filteredAccesses, page, pageSize],
   );
+  const canCreateAccess = !!currentUser && currentUser.role !== "pending";
 
   if (currentUser?.role === "pending") {
     return (
@@ -115,13 +116,25 @@ function DepartmentsPage() {
             </p>
             <h1 className="mt-1 font-display text-2xl font-semibold">Departamentos</h1>
           </div>
-          <ConfidentialBadge />
+          <div className="flex items-center gap-3">
+            <ConfidentialBadge />
+            {canCreateAccess && (
+              <Button
+                onClick={() => {
+                  setEditing(null);
+                  setFormOpen(true);
+                }}
+              >
+                <Plus /> Novo acesso
+              </Button>
+            )}
+          </div>
         </div>
       )}
 
       {!isCeo && visibleDepartments.length === 0 ? (
         <div className="rounded-2xl border border-border bg-card p-10 text-center text-sm text-muted-foreground">
-          Nenhum acesso liberado para voce.
+          Nenhum acesso liberado ou cadastrado para voce.
         </div>
       ) : !isCeo ? (
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
@@ -226,20 +239,22 @@ function DepartmentsPage() {
               />
             </>
           )}
-
-          <AccessForm
-            open={formOpen}
-            onOpenChange={(open) => {
-              setFormOpen(open);
-              if (!open) setEditing(null);
-            }}
-            departmentId={sortedDepartments[0]?.id ?? "outros"}
-            departments={sortedDepartments}
-            allowMultiDepartment
-            initial={editing}
-            onSave={saveAccess}
-          />
         </section>
+      )}
+
+      {canCreateAccess && (
+        <AccessForm
+          open={formOpen}
+          onOpenChange={(open) => {
+            setFormOpen(open);
+            if (!open) setEditing(null);
+          }}
+          departmentId={sortedDepartments[0]?.id ?? "outros"}
+          departments={sortedDepartments}
+          allowMultiDepartment
+          initial={editing}
+          onSave={saveAccess}
+        />
       )}
     </div>
   );

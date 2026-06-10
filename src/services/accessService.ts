@@ -122,13 +122,14 @@ export async function createAccess(data: AccessInput, user: Express.User, ipAddr
 }
 
 export async function listAccess(query: AccessQuery, user: Express.User) {
+  const canViewAllAccess = user.totalAccess || user.role === UserRole.ADMIN;
   const canManageItemPermissions = user.totalAccess || user.canManagePermissions;
 
-  if (canManageItemPermissions && !query.userId) {
+  if (canViewAllAccess && !query.userId) {
     return listAdminAccess(query, user.totalAccess ? user.id : undefined);
   }
 
-  if (query.userId && query.userId !== user.id && !canManageItemPermissions) {
+  if (query.userId && query.userId !== user.id && !canManageItemPermissions && !canViewAllAccess) {
     throw new AppError(403, "Access denied");
   }
 
