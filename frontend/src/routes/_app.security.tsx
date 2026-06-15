@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import QRCode from "qrcode";
 import {
+  Apple,
   CheckCircle2,
   Copy,
   KeyRound,
@@ -29,6 +30,42 @@ type SetupState = {
   otpauthUrl: string;
 };
 
+type AuthenticatorGuide = "google" | "apple";
+
+const authenticatorGuides: Record<
+  AuthenticatorGuide,
+  {
+    title: string;
+    shortTitle: string;
+    description: string;
+    setupText: string;
+    firstStep: string;
+    firstStepIcon: LucideIcon;
+    visual: "google" | "apple";
+  }
+> = {
+  google: {
+    title: "Google Authenticator",
+    shortTitle: "Google",
+    description: "Use o aplicativo Google Authenticator em Android ou iPhone.",
+    setupText:
+      "Escaneie o QR Code no Google Authenticator. Depois informe o codigo gerado para concluir.",
+    firstStep: "Abra a loja do seu celular e procure por Google Authenticator.",
+    firstStepIcon: Smartphone,
+    visual: "google",
+  },
+  apple: {
+    title: "Senhas da Apple",
+    shortTitle: "Apple",
+    description: "Use o gerador de codigos nativo do iPhone, iPad ou Mac.",
+    setupText:
+      "Escaneie o QR Code pelo app Senhas da Apple ou use a chave manual. Depois informe o codigo gerado para concluir.",
+    firstStep: "No iPhone, abra Senhas ou Ajustes > Senhas para adicionar o codigo.",
+    firstStepIcon: Apple,
+    visual: "apple",
+  },
+};
+
 function SecurityPage() {
   const { currentUser, setupMfa, confirmMfa, disableMfa } = useAuth();
   const [setup, setSetup] = useState<SetupState | null>(null);
@@ -37,7 +74,9 @@ function SecurityPage() {
   const [disableCode, setDisableCode] = useState("");
   const [busy, setBusy] = useState(false);
   const [unlockUntil, setUnlockUntil] = useState(0);
+  const [authenticatorGuide, setAuthenticatorGuide] = useState<AuthenticatorGuide>("google");
   const mfaEnabled = !!currentUser?.mfaEnabled;
+  const activeGuide = authenticatorGuides[authenticatorGuide];
 
   useEffect(() => {
     if (!setup) {
@@ -194,22 +233,59 @@ function SecurityPage() {
         {!mfaEnabled && (
           <div className="mt-6 grid grid-cols-1 gap-5 rounded-xl border border-border bg-background/50 p-5 lg:grid-cols-[160px_1fr]">
             <div className="flex items-center justify-center rounded-lg bg-white p-4">
-              <img
-                src="/google-authenticator.jpg"
-                alt="Google Authenticator"
-                className="h-28 w-28 object-contain"
-              />
+              {activeGuide.visual === "google" ? (
+                <img
+                  src="/google-authenticator.jpg"
+                  alt="Google Authenticator"
+                  className="h-28 w-28 object-contain"
+                />
+              ) : (
+                <div className="flex h-28 w-28 items-center justify-center rounded-[1.75rem] bg-black text-white">
+                  <Apple className="h-14 w-14" />
+                </div>
+              )}
             </div>
             <div>
-              <h3 className="font-display text-base font-semibold">Instale o Google Authenticator</h3>
+              <h3 className="font-display text-base font-semibold">Escolha seu autenticador</h3>
               <p className="mt-1 text-sm text-muted-foreground">
-                Antes de configurar o iToken, instale o aplicativo Google Authenticator no celular.
+                O iToken usa um codigo de 6 digitos compativel com Google Authenticator e Senhas da
+                Apple.
               </p>
+              <div className="mt-4 grid gap-2 sm:grid-cols-2">
+                {Object.entries(authenticatorGuides).map(([key, guide]) => {
+                  const selected = authenticatorGuide === key;
+
+                  return (
+                    <button
+                      key={key}
+                      type="button"
+                      onClick={() => setAuthenticatorGuide(key as AuthenticatorGuide)}
+                      className={`rounded-lg border p-3 text-left transition ${
+                        selected
+                          ? "border-primary bg-primary/10 text-foreground"
+                          : "border-border bg-card/60 text-muted-foreground hover:border-primary/50 hover:text-foreground"
+                      }`}
+                    >
+                      <span className="flex items-center gap-2 font-medium">
+                        {guide.visual === "apple" ? (
+                          <Apple className="h-4 w-4" />
+                        ) : (
+                          <Smartphone className="h-4 w-4" />
+                        )}
+                        {guide.title}
+                      </span>
+                      <span className="mt-1 block text-xs leading-relaxed">
+                        {guide.description}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
               <div className="mt-4 grid gap-3 text-sm text-muted-foreground sm:grid-cols-3">
                 <InstructionStep
-                  icon={Smartphone}
-                  title="1. Baixe o app"
-                  text="Abra a loja do seu celular e procure por Google Authenticator."
+                  icon={activeGuide.firstStepIcon}
+                  title={`1. Abra ${activeGuide.shortTitle}`}
+                  text={activeGuide.firstStep}
                 />
                 <InstructionStep
                   icon={ScanLine}
@@ -247,10 +323,7 @@ function SecurityPage() {
             <div className="space-y-4">
               <div>
                 <h3 className="font-display text-base font-semibold">Cadastrar no autenticador</h3>
-                <p className="mt-1 text-sm text-muted-foreground">
-                  Escaneie o QR Code no Google Authenticator, Authy ou Microsoft Authenticator.
-                  Depois informe o codigo gerado para concluir.
-                </p>
+                <p className="mt-1 text-sm text-muted-foreground">{activeGuide.setupText}</p>
               </div>
 
               <div className="space-y-2">
