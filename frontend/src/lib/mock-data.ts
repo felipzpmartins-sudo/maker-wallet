@@ -39,6 +39,11 @@ export interface AccessEntry {
   id: string;
   departmentId: string;
   departmentIds?: string[];
+  createdBy?: {
+    id: string;
+    name: string;
+    email: string;
+  };
   type: AccessType;
   name: string;
   // optional fields depending on type

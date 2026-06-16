@@ -222,6 +222,7 @@ function DepartmentsPage() {
                     access={access}
                     departments={departments}
                     canManage={isAdmin}
+                    showCreatedBy={isAdmin}
                     onEdit={(selectedAccess) => {
                       setEditing(selectedAccess);
                       setFormOpen(true);

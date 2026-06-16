@@ -117,6 +117,11 @@ interface ApiAccess {
   credentialSecret?: string | null;
   credentialToken?: string | null;
   departmentIds?: string[];
+  createdBy?: {
+    id: string;
+    name: string;
+    email: string;
+  } | null;
 }
 
 interface ApiRenewalService {
@@ -204,6 +209,7 @@ function mapApiAccess(access: ApiAccess): AccessEntry {
     id: access.id,
     departmentId: departmentIds[0],
     departmentIds,
+    createdBy: access.createdBy ?? undefined,
     type,
     name: access.title,
     host: access.host ?? undefined,

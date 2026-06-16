@@ -181,6 +181,7 @@ function DepartmentDetailPage() {
                 access={access}
                 departments={departments}
                 canManage={isAdmin}
+                showCreatedBy={isAdmin}
                 onEdit={(a) => {
                   setEditing(a);
                   setFormOpen(true);

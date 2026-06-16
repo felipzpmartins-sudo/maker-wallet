@@ -7,6 +7,16 @@ import { canAccess, upsertPermission } from "./permissionService";
 import { createAuditLog } from "./auditLogService";
 import { verifyMfaOrThrow } from "./mfaService";
 
+const accessCreatorInclude = {
+  createdBy: {
+    select: {
+      id: true,
+      name: true,
+      email: true
+    }
+  }
+} satisfies Prisma.AccessItemInclude;
+
 type AccessInput = {
   type: AccessType;
   title: string;
@@ -108,7 +118,8 @@ export async function createAccess(data: AccessInput, user: Express.User, ipAddr
     data: {
       ...buildAccessData(data),
       createdById: user.id
-    } as Prisma.AccessItemUncheckedCreateInput
+    } as Prisma.AccessItemUncheckedCreateInput,
+    include: accessCreatorInclude
   });
 
   await createAuditLog({
@@ -192,78 +203,55 @@ export async function listAccess(query: AccessQuery, user: Express.User) {
 async function listAdminAccess(query: AccessQuery, deniedUserId?: string) {
   const page = query.page;
   const limit = query.limit;
-  const offset = (page - 1) * limit;
-  const filters: Prisma.Sql[] = [];
+  const andFilters: Prisma.AccessItemWhereInput[] = [];
 
   if (query.type) {
-    filters.push(Prisma.sql`"type" = ${query.type}::"AccessType"`);
+    andFilters.push({ type: query.type });
   }
 
   if (query.createdBy) {
-    filters.push(Prisma.sql`"createdById" = ${query.createdBy}`);
+    andFilters.push({ createdById: query.createdBy });
   }
 
   if (query.search) {
-    const search = `%${query.search}%`;
-    filters.push(Prisma.sql`(
-      "title" ILIKE ${search}
-      OR "description" ILIKE ${search}
-      OR "host" ILIKE ${search}
-      OR "username" ILIKE ${search}
-      OR "email" ILIKE ${search}
-      OR "appName" ILIKE ${search}
-    )`);
+    andFilters.push({
+      OR: [
+        { title: { contains: query.search, mode: "insensitive" } },
+        { description: { contains: query.search, mode: "insensitive" } },
+        { host: { contains: query.search, mode: "insensitive" } },
+        { username: { contains: query.search, mode: "insensitive" } },
+        { email: { contains: query.search, mode: "insensitive" } },
+        { appName: { contains: query.search, mode: "insensitive" } }
+      ]
+    });
   }
 
   if (deniedUserId) {
-    filters.push(Prisma.sql`NOT EXISTS (
-      SELECT 1
-      FROM "AccessPermission" deniedPermission
-      WHERE deniedPermission."accessItemId" = "AccessItem"."id"
-        AND deniedPermission."userId" = ${deniedUserId}
-        AND deniedPermission."canView" = false
-    )`);
+    andFilters.push({
+      NOT: {
+        permissions: {
+          some: {
+            userId: deniedUserId,
+            canView: false
+          }
+        }
+      }
+    });
   }
 
-  const where = filters.length
-    ? Prisma.sql`WHERE ${Prisma.join(filters, " AND ")}`
-    : Prisma.empty;
+  const where: Prisma.AccessItemWhereInput = andFilters.length > 0 ? { AND: andFilters } : {};
+  const skip = (page - 1) * limit;
 
-  const items = await prisma.$queryRaw<Prisma.AccessItemGetPayload<Record<string, never>>[]>`
-    SELECT
-      "id",
-      "type",
-      "title",
-      "description",
-      "host",
-      "port",
-      "username",
-      "email",
-      "encryptedPassword",
-      "loginUrl",
-      "observation",
-      "appName",
-      "keystoreFilePath",
-      "credentialId",
-      "credentialSecret",
-      "credentialToken",
-      "departmentIds",
-      "createdById",
-      "createdAt",
-      "updatedAt"
-    FROM "AccessItem"
-    ${where}
-    ORDER BY "createdAt" DESC
-    LIMIT ${limit}
-    OFFSET ${offset}
-  `;
-
-  const totalRows = await prisma.$queryRaw<{ count: bigint }[]>`
-    SELECT COUNT(*)::bigint AS count
-    FROM "AccessItem"
-    ${where}
-  `;
-  const total = Number(totalRows[0]?.count ?? 0);
+  const [items, total] = await Promise.all([
+    prisma.accessItem.findMany({
+      where,
+      skip,
+      take: limit,
+      include: accessCreatorInclude,
+      orderBy: { createdAt: "desc" }
+    }),
+    prisma.accessItem.count({ where })
+  ]);
 
   return {
     items: items.map(sanitizeAccessItem),

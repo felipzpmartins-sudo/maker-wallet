@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { ExternalLink, Pencil, Trash2 } from "lucide-react";
+import { ExternalLink, Pencil, Trash2, UserRound } from "lucide-react";
 import { toast } from "sonner";
 import { PasswordField } from "@/components/PasswordField";
 import { SensitiveField } from "@/components/SensitiveField";
@@ -27,6 +27,7 @@ interface AccessCardProps {
   access: AccessEntry;
   departments?: Department[];
   canManage?: boolean;
+  showCreatedBy?: boolean;
   onEdit?: (a: AccessEntry) => void;
   onDelete?: (id: string) => Promise<void>;
 }
@@ -52,12 +53,22 @@ function Field({ label, value, link }: { label: string; value?: string; link?: b
   );
 }
 
-export function AccessCard({ access, departments = [], canManage, onEdit, onDelete }: AccessCardProps) {
+export function AccessCard({
+  access,
+  departments = [],
+  canManage,
+  showCreatedBy,
+  onEdit,
+  onDelete,
+}: AccessCardProps) {
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const accessDepartments = sortByName(
     departments.filter((department) => getAccessDepartmentIds(access).includes(department.id)),
   );
+  const creatorLabel = access.createdBy
+    ? access.createdBy.name || access.createdBy.email
+    : undefined;
 
   return (
     <div className="rounded-2xl border border-border bg-card p-5">
@@ -74,6 +85,14 @@ export function AccessCard({ access, departments = [], canManage, onEdit, onDele
                   {department.name}
                 </Badge>
               ))}
+            </div>
+          )}
+          {showCreatedBy && creatorLabel && (
+            <div className="mt-2 flex items-center gap-1.5 text-xs text-muted-foreground">
+              <UserRound className="h-3.5 w-3.5" />
+              <span>
+                Cadastrado por <span className="font-medium text-foreground">{creatorLabel}</span>
+              </span>
             </div>
           )}
         </div>
