@@ -12,6 +12,15 @@ export const registerSchema = z.object({
   invite: z.string().min(1)
 });
 
+export const forgotPasswordSchema = z.object({
+  email: z.string().email()
+});
+
+export const resetPasswordSchema = z.object({
+  token: z.string().min(32),
+  password: z.string().min(8)
+});
+
 export const mfaCodeSchema = z.object({
   code: z.string().regex(/^\d{6}$/, "MFA code must have 6 digits")
 });

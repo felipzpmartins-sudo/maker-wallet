@@ -1,5 +1,5 @@
 import { useEffect, useState, type FormEvent } from "react";
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { Vault, ShieldCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -67,7 +67,12 @@ function LoginPage() {
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="password">Senha</Label>
+              <div className="flex items-center justify-between gap-3">
+                <Label htmlFor="password">Senha</Label>
+                <Link to="/forgot-password" className="text-sm font-medium text-primary hover:underline">
+                  Esqueci minha senha
+                </Link>
+              </div>
               <Input
                 id="password"
                 type="password"

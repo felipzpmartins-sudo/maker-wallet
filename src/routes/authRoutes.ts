@@ -4,7 +4,13 @@ import * as authController from "../controllers/authController";
 import * as mfaController from "../controllers/mfaController";
 import { authMiddleware } from "../middlewares/authMiddleware";
 import { validate } from "../middlewares/validate";
-import { loginSchema, mfaCodeSchema, registerSchema } from "../schemas/authSchemas";
+import {
+  forgotPasswordSchema,
+  loginSchema,
+  mfaCodeSchema,
+  registerSchema,
+  resetPasswordSchema
+} from "../schemas/authSchemas";
 
 export const authRoutes = Router();
 
@@ -17,6 +23,18 @@ const loginLimiter = rateLimit({
 
 authRoutes.post("/login", loginLimiter, validate({ body: loginSchema }), authController.login);
 authRoutes.post("/register", validate({ body: registerSchema }), authController.register);
+authRoutes.post(
+  "/forgot-password",
+  loginLimiter,
+  validate({ body: forgotPasswordSchema }),
+  authController.forgotPassword
+);
+authRoutes.post(
+  "/reset-password",
+  loginLimiter,
+  validate({ body: resetPasswordSchema }),
+  authController.resetPassword
+);
 authRoutes.get("/me", authMiddleware, authController.me);
 authRoutes.post("/mfa/setup", authMiddleware, mfaController.setup);
 authRoutes.post("/mfa/confirm", authMiddleware, validate({ body: mfaCodeSchema }), mfaController.confirm);
