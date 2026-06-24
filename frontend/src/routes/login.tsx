@@ -1,5 +1,5 @@
 import { useEffect, useState, type FormEvent } from "react";
-import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { Vault, ShieldCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -24,7 +24,7 @@ function LoginPage() {
   const [error, setError] = useState("");
 
   useEffect(() => {
-    if (currentUser) navigate({ to: "/departments" });
+    if (currentUser) navigate({ to: currentUser.mustChangePassword ? "/change-password" : "/departments" });
   }, [currentUser, navigate]);
 
   const handleSubmit = async (e: FormEvent) => {
@@ -35,7 +35,7 @@ function LoginPage() {
       setError(res.error ?? "Não foi possível entrar.");
       return;
     }
-    navigate({ to: "/departments" });
+    navigate({ to: res.mustChangePassword ? "/change-password" : "/departments" });
   };
 
   return (
@@ -67,12 +67,7 @@ function LoginPage() {
               />
             </div>
             <div className="space-y-2">
-              <div className="flex items-center justify-between gap-3">
-                <Label htmlFor="password">Senha</Label>
-                <Link to="/forgot-password" className="text-sm font-medium text-primary hover:underline">
-                  Esqueci minha senha
-                </Link>
-              </div>
+              <Label htmlFor="password">Senha</Label>
               <Input
                 id="password"
                 type="password"

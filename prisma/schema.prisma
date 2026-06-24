@@ -51,6 +51,7 @@ model User {
   allowedDepartments String[]     @default([])
   totalAccess Boolean            @default(false)
   canManagePermissions Boolean    @default(false)
+  mustChangePassword Boolean      @default(false)
   mfaSecret   String?
   mfaEnabled  Boolean            @default(false)
   createdAt   DateTime           @default(now())

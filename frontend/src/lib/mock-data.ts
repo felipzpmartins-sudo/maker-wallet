@@ -92,6 +92,7 @@ export interface AppUser {
   allowedDepartments: string[];
   totalAccess?: boolean;
   canManagePermissions?: boolean;
+  mustChangePassword?: boolean;
   mfaEnabled?: boolean;
   mfaSecret?: string;
 }

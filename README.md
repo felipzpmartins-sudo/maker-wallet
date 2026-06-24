@@ -27,15 +27,7 @@ JWT_SECRET="change-me"
 ENCRYPTION_SECRET="change-me-with-32-or-more-characters"
 PORT=3333
 FRONTEND_URL="http://localhost:3000"
-SMTP_HOST=""
-SMTP_PORT=587
-SMTP_USER=""
-SMTP_PASS=""
-SMTP_FROM="Maker Wallet <no-reply@maker.com>"
 ```
-
-As variaveis SMTP habilitam o envio de e-mail do fluxo "Esqueci minha senha".
-Sem elas, o backend registra o link de redefinicao nos logs para uso administrativo temporario.
 
 ## Comandos
 
@@ -79,8 +71,7 @@ Troque essa senha antes de usar em qualquer ambiente real.
 
 - `GET /health`
 - `POST /auth/login`
-- `POST /auth/forgot-password`
-- `POST /auth/reset-password`
+- `POST /auth/change-password`
 - `GET /auth/me`
 - `POST /users`
 - `GET /users`

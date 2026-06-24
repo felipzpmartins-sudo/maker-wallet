@@ -144,7 +144,10 @@ export async function resetUserPassword(
 
   const user = await prisma.user.update({
     where: { id },
-    data: { passwordHash }
+    data: {
+      passwordHash,
+      mustChangePassword: true
+    }
   });
 
   await prisma.passwordResetToken.deleteMany({

@@ -15,6 +15,7 @@ function AppLayout() {
 
   useEffect(() => {
     if (!currentUser) navigate({ to: "/login" });
+    if (currentUser?.mustChangePassword) navigate({ to: "/change-password" });
   }, [currentUser, navigate]);
 
   if (!currentUser) return null;

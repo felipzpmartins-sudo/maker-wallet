@@ -11,7 +11,9 @@ function Index() {
   const navigate = useNavigate();
 
   useEffect(() => {
-    navigate({ to: currentUser ? "/departments" : "/login" });
+    navigate({
+      to: currentUser ? (currentUser.mustChangePassword ? "/change-password" : "/departments") : "/login",
+    });
   }, [currentUser, navigate]);
 
   return null;

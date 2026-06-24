@@ -15,7 +15,8 @@ interface AuthContextValue {
   departments: Department[];
   accesses: AccessEntry[];
   renewalServices: RenewalService[];
-  login: (email: string, password: string) => Promise<{ ok: boolean; error?: string }>;
+  login: (email: string, password: string) => Promise<{ ok: boolean; error?: string; mustChangePassword?: boolean }>;
+  changePassword: (password: string) => Promise<{ ok: boolean; error?: string }>;
   register: (
     name: string,
     email: string,
@@ -76,6 +77,7 @@ interface ApiUser {
   allowedDepartments?: string[];
   totalAccess?: boolean;
   canManagePermissions?: boolean;
+  mustChangePassword?: boolean;
   mfaEnabled?: boolean;
 }
 
@@ -158,6 +160,7 @@ function mapApiUser(user: ApiUser): AppUser {
     allowedDepartments: user.allowedDepartments ?? [],
     totalAccess: user.totalAccess,
     canManagePermissions: user.canManagePermissions,
+    mustChangePassword: user.mustChangePassword,
     mfaEnabled: user.mfaEnabled,
   };
 }
@@ -319,6 +322,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [renewalServices, setRenewalServices] = useState<RenewalService[]>([]);
   const [currentUser, setCurrentUser] = useState<AppUser | null>(null);
   const [token, setToken] = useState<string | null>(null);
+  const isCeo = currentUser?.role === "ceo";
+  const isAdmin = isCeo || currentUser?.role === "admin";
+  const canManagePermissions = isCeo || !!currentUser?.canManagePermissions;
 
   const syncUsersFromApi = useCallback(async (authToken: string) => {
     const apiUsers = await apiRequest<ApiUser[]>("/users", { token: authToken });
@@ -361,7 +367,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (mappedUser.role === "ceo" || mappedUser.role === "admin") {
           await syncUsersFromApi(result.token);
         }
-        return { ok: true };
+        return { ok: true, mustChangePassword: mappedUser.mustChangePassword };
       } catch (error) {
         if (error instanceof ApiError) {
           return { ok: false, error: error.message };
@@ -372,6 +378,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     },
     [syncAccessesFromApi, syncDepartmentsFromApi, syncRenewalServicesFromApi, syncUsersFromApi],
   );
+
+  const changePassword = useCallback(async (password: string) => {
+    if (!token) {
+      return { ok: false, error: "Sessao expirada. Faca login novamente." };
+    }
+
+    try {
+      const apiUser = await apiRequest<ApiUser>("/auth/change-password", {
+        method: "POST",
+        token,
+        body: JSON.stringify({ password }),
+      });
+      setCurrentUser(mapApiUser(apiUser));
+      if (isAdmin) await syncUsersFromApi(token);
+      return { ok: true };
+    } catch (error) {
+      if (error instanceof ApiError) {
+        return { ok: false, error: error.message };
+      }
+      return { ok: false, error: "Nao foi possivel alterar a senha." };
+    }
+  }, [isAdmin, syncUsersFromApi, token]);
 
   const register = useCallback(
     async (name: string, email: string, password: string, invite?: string) => {
@@ -565,10 +593,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return result.password;
   }, [token]);
 
-  const isCeo = currentUser?.role === "ceo";
-  const isAdmin = isCeo || currentUser?.role === "admin";
-  const canManagePermissions = isCeo || !!currentUser?.canManagePermissions;
-
   const setupMfa = useCallback(async () => {
     if (!token) {
       throw new Error("Sessao expirada. Faca login novamente.");
@@ -667,6 +691,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         accesses,
         renewalServices,
         login,
+        changePassword,
         register,
         logout,
         updateUser,

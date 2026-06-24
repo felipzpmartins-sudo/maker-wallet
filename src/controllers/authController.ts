@@ -17,19 +17,9 @@ export async function register(request: Request, response: Response) {
   return response.status(201).json(success(result, "Registration created"));
 }
 
-export async function forgotPassword(request: Request, response: Response) {
-  await authService.requestPasswordReset(request.body.email);
-  return response.json(
-    success(
-      { sent: true },
-      "Se o e-mail estiver cadastrado, enviaremos um link para redefinir a senha."
-    )
-  );
-}
-
-export async function resetPassword(request: Request, response: Response) {
-  const result = await authService.resetPassword(request.body.token, request.body.password);
-  return response.json(success(result, "Senha redefinida com sucesso"));
+export async function changePassword(request: Request, response: Response) {
+  const result = await authService.changePassword(request.user!.id, request.body.password);
+  return response.json(success(result, "Password changed"));
 }
 
 export async function me(request: Request, response: Response) {
