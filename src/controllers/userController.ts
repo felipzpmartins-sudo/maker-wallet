@@ -31,3 +31,13 @@ export async function resetMfa(request: Request, response: Response) {
   const result = await userService.resetUserMfa(String(request.params.id), request.user!, request.ip);
   return response.json(success(result, "User MFA reset"));
 }
+
+export async function resetPassword(request: Request, response: Response) {
+  const result = await userService.resetUserPassword(
+    String(request.params.id),
+    request.body.password,
+    request.user!,
+    request.ip
+  );
+  return response.json(success(result, "User password reset"));
+}

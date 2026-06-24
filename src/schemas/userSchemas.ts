@@ -12,3 +12,7 @@ export const createUserSchema = z.object({
 });
 
 export const updateUserSchema = createUserSchema.partial();
+
+export const resetUserPasswordSchema = z.object({
+  password: z.string().min(8)
+});

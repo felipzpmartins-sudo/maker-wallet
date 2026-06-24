@@ -129,3 +129,36 @@ export async function resetUserMfa(id: string, currentUser: Express.User, ipAddr
 
   return sanitizeUser(user);
 }
+
+export async function resetUserPassword(
+  id: string,
+  password: string,
+  currentUser: Express.User,
+  ipAddress?: string
+) {
+  if (id === currentUser.id) {
+    throw new AppError(400, "You cannot reset your own password here");
+  }
+
+  const passwordHash = await bcrypt.hash(password, 12);
+
+  const user = await prisma.user.update({
+    where: { id },
+    data: { passwordHash }
+  });
+
+  await prisma.passwordResetToken.deleteMany({
+    where: {
+      userId: id,
+      usedAt: null
+    }
+  });
+
+  await createAuditLog({
+    userId: currentUser.id,
+    action: "USER_PASSWORD_RESET",
+    ipAddress
+  });
+
+  return sanitizeUser(user);
+}

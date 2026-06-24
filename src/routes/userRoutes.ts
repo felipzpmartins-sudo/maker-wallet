@@ -5,7 +5,7 @@ import { authMiddleware } from "../middlewares/authMiddleware";
 import { requireRole } from "../middlewares/roleMiddleware";
 import { validate } from "../middlewares/validate";
 import { idParamSchema } from "../schemas/commonSchemas";
-import { createUserSchema, updateUserSchema } from "../schemas/userSchemas";
+import { createUserSchema, resetUserPasswordSchema, updateUserSchema } from "../schemas/userSchemas";
 
 export const userRoutes = Router();
 
@@ -20,4 +20,9 @@ userRoutes.patch(
   userController.update
 );
 userRoutes.post("/:id/reset-mfa", validate({ params: idParamSchema }), userController.resetMfa);
+userRoutes.post(
+  "/:id/reset-password",
+  validate({ params: idParamSchema, body: resetUserPasswordSchema }),
+  userController.resetPassword
+);
 userRoutes.delete("/:id", validate({ params: idParamSchema }), userController.remove);

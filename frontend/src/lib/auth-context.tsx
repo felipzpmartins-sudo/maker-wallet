@@ -44,6 +44,7 @@ interface AuthContextValue {
   deleteRenewalService: (id: string) => Promise<void>;
   deleteUser: (id: string) => Promise<void>;
   resetUserMfa: (id: string) => Promise<void>;
+  resetUserPassword: (id: string, password: string) => Promise<void>;
   // helpers
   isAdmin: boolean;
   isCeo: boolean;
@@ -431,6 +432,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     await syncUsersFromApi(token);
   }, [syncUsersFromApi, token]);
 
+  const resetUserPassword = useCallback(async (id: string, password: string) => {
+    if (!token) {
+      throw new Error("Sessao expirada. Faca login novamente.");
+    }
+    await apiRequest<ApiUser>(`/users/${id}/reset-password`, {
+      method: "POST",
+      token,
+      body: JSON.stringify({ password }),
+    });
+    await syncUsersFromApi(token);
+  }, [syncUsersFromApi, token]);
+
   const addDepartment = useCallback(async (dep: Department) => {
     if (token) {
       await apiRequest<ApiDepartment>("/departments", {
@@ -672,6 +685,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         deleteRenewalService,
         deleteUser,
         resetUserMfa,
+        resetUserPassword,
         isAdmin,
         isCeo,
         canManagePermissions,

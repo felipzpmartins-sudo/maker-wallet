@@ -1,11 +1,13 @@
-import { useMemo } from "react";
+import { useMemo, useState, type FormEvent } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { toast } from "sonner";
 import { useAuth } from "@/lib/auth-context";
 import { useAdminGuard } from "@/hooks/use-admin-guard";
-import { ROLE_LABELS, type UserRole } from "@/lib/mock-data";
+import { ROLE_LABELS, type AppUser, type UserRole } from "@/lib/mock-data";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import {
   AlertDialog,
@@ -18,6 +20,15 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 import {
   Select,
   SelectContent,
@@ -41,7 +52,16 @@ const roleStyles: Record<UserRole, string> = {
 
 function UsersPage() {
   const allowed = useAdminGuard();
-  const { users, currentUser, isCeo, updateUser, deleteUser, resetUserMfa } = useAuth();
+  const {
+    users,
+    currentUser,
+    isAdmin,
+    isCeo,
+    updateUser,
+    deleteUser,
+    resetUserMfa,
+    resetUserPassword,
+  } = useAuth();
   const sortedUsers = useMemo(() => sortByName(users), [users]);
 
   if (!allowed) return null;
@@ -148,8 +168,13 @@ function UsersPage() {
                   </>
                 )}
 
-                {isCeo && u.id !== currentUser?.id && (
+                {isAdmin && u.id !== currentUser?.id && (
                   <div className="flex items-center gap-1 rounded-md border border-border px-2 py-1.5">
+                    <ResetPasswordDialog
+                      user={u}
+                      onReset={(password) => resetUserPassword(u.id, password)}
+                    />
+
                     <Button
                       size="sm"
                       variant="ghost"
@@ -199,5 +224,114 @@ function UsersPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+function ResetPasswordDialog({
+  user,
+  onReset,
+}: {
+  user: AppUser;
+  onReset: (password: string) => Promise<void>;
+}) {
+  const [open, setOpen] = useState(false);
+  const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  const resetForm = () => {
+    setPassword("");
+    setConfirmPassword("");
+    setError("");
+    setLoading(false);
+  };
+
+  const handleSubmit = async (event: FormEvent) => {
+    event.preventDefault();
+    setError("");
+
+    if (password.length < 8) {
+      setError("A senha temporaria deve ter ao menos 8 caracteres.");
+      return;
+    }
+
+    if (password !== confirmPassword) {
+      setError("As senhas nao coincidem.");
+      return;
+    }
+
+    setLoading(true);
+    try {
+      await onReset(password);
+      toast.success("Senha resetada", {
+        description: `Passe a senha temporaria para ${user.name}.`,
+      });
+      setOpen(false);
+      resetForm();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Nao foi possivel resetar a senha.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <Dialog
+      open={open}
+      onOpenChange={(nextOpen) => {
+        setOpen(nextOpen);
+        if (!nextOpen) resetForm();
+      }}
+    >
+      <DialogTrigger asChild>
+        <Button size="sm" variant="ghost">
+          <KeyRound /> Resetar senha
+        </Button>
+      </DialogTrigger>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Resetar senha</DialogTitle>
+          <DialogDescription>
+            Defina uma senha temporaria para {user.name}. A pessoa podera entrar com ela no proximo
+            acesso.
+          </DialogDescription>
+        </DialogHeader>
+
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor={`password-${user.id}`}>Senha temporaria</Label>
+            <Input
+              id={`password-${user.id}`}
+              type="password"
+              autoComplete="new-password"
+              value={password}
+              onChange={(event) => setPassword(event.target.value)}
+              required
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor={`confirm-password-${user.id}`}>Confirmar senha</Label>
+            <Input
+              id={`confirm-password-${user.id}`}
+              type="password"
+              autoComplete="new-password"
+              value={confirmPassword}
+              onChange={(event) => setConfirmPassword(event.target.value)}
+              required
+            />
+          </div>
+
+          {error && <p className="text-sm text-destructive">{error}</p>}
+
+          <DialogFooter>
+            <Button type="submit" disabled={loading}>
+              {loading ? "Salvando..." : "Salvar senha"}
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
   );
 }
