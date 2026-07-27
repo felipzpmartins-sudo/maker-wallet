@@ -1,10 +1,14 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { Vault, ShieldCheck } from "lucide-react";
+import { Eye, EyeOff, ShieldCheck, Vault } from "lucide-react";
+import { PremiumVaultScroll } from "@/components/login/PremiumVaultScroll";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useAuth } from "@/lib/auth-context";
+import "@/components/login/premium-login.css";
+
+type LoginStage = "idle" | "authenticating" | "opening";
 
 export const Route = createFileRoute("/login")({
   head: () => ({
@@ -22,81 +26,187 @@ function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
+  const [fieldErrors, setFieldErrors] = useState<{ email?: string; password?: string }>({});
+  const [showPassword, setShowPassword] = useState(false);
+  const [loginStage, setLoginStage] = useState<LoginStage>("idle");
+  const [loadingMessage, setLoadingMessage] = useState("Carregando seu banco de senhas");
+  const isSubmitting = loginStage !== "idle";
 
   useEffect(() => {
-    if (currentUser) navigate({ to: currentUser.mustChangePassword ? "/change-password" : "/departments" });
-  }, [currentUser, navigate]);
+    if (currentUser && loginStage === "idle")
+      navigate({ to: currentUser.mustChangePassword ? "/change-password" : "/departments" });
+  }, [currentUser, loginStage, navigate]);
 
-  const handleSubmit = async (e: FormEvent) => {
-    e.preventDefault();
+  const handleSubmit = async (event: FormEvent) => {
+    event.preventDefault();
+    if (isSubmitting) return;
     setError("");
-    const res = await login(email, password);
-    if (!res.ok) {
-      setError(res.error ?? "Não foi possível entrar.");
-      return;
+    const nextErrors: { email?: string; password?: string } = {};
+
+    if (!email.trim()) nextErrors.email = "Informe seu e-mail.";
+    else if (!/^\S+@\S+\.\S+$/.test(email)) nextErrors.email = "Informe um e-mail válido.";
+    if (!password) nextErrors.password = "Informe sua senha.";
+
+    setFieldErrors(nextErrors);
+    if (Object.keys(nextErrors).length) return;
+
+    const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const loadingTimers = [
+      window.setTimeout(() => setLoadingMessage("Organizando seus acessos"), 1400),
+      window.setTimeout(() => setLoadingMessage("Preparando seu ambiente seguro"), 2800),
+    ];
+
+    if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
+    window.scrollTo({ top: 0, behavior: reducedMotion ? "auto" : "smooth" });
+    setLoadingMessage("Carregando seu banco de senhas");
+    setLoginStage("authenticating");
+
+    try {
+      const result = await login(email.trim(), password);
+      if (!result.ok) {
+        setError(result.error ?? "Não foi possível entrar.");
+        setLoginStage("idle");
+        return;
+      }
+
+      loadingTimers.forEach((timer) => window.clearTimeout(timer));
+      setLoadingMessage("Cofre liberado");
+      setLoginStage("opening");
+      await new Promise((resolve) => window.setTimeout(resolve, reducedMotion ? 120 : 900));
+      navigate({ to: result.mustChangePassword ? "/change-password" : "/departments" });
+    } catch {
+      setError("Não foi possível conectar ao servidor.");
+      setLoginStage("idle");
+    } finally {
+      loadingTimers.forEach((timer) => window.clearTimeout(timer));
     }
-    navigate({ to: res.mustChangePassword ? "/change-password" : "/departments" });
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-background p-4">
-      <div className="w-full max-w-md">
-        <div className="mb-8 flex flex-col items-center text-center">
-          <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-primary text-primary-foreground shadow-[var(--shadow-glow)]">
-            <Vault className="h-7 w-7" />
+    <main className="premium-login" data-auth-stage={loginStage} aria-busy={isSubmitting}>
+      <PremiumVaultScroll>
+        <div className="premium-login-topbar">
+          <div className="premium-login-topbar-mark">
+            <Vault className="h-4 w-4" aria-hidden="true" />
+            Maker Wallet
           </div>
-          <h1 className="font-display text-2xl font-semibold">Maker Wallet</h1>
-          <p className="mt-1 text-sm text-muted-foreground">Gestão segura de acessos</p>
+          <span>Ambiente de acesso restrito</span>
         </div>
 
-        <div
-          className="rounded-2xl border border-border p-6 shadow-[var(--shadow-elegant)]"
-          style={{ background: "var(--gradient-vault)" }}
-        >
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="email">E-mail</Label>
-              <Input
-                id="email"
-                type="email"
-                autoComplete="email"
-                placeholder="voce@maker.com"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="password">Senha</Label>
-              <Input
-                id="password"
-                type="password"
-                autoComplete="current-password"
-                placeholder="••••••••"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-              />
-            </div>
+        <div className="premium-login-content" aria-hidden={isSubmitting}>
+          <div className="premium-login-form">
+            <p className="premium-login-eyebrow">Portal seguro</p>
+            <h1 className="premium-login-title">
+              Sua equipe.
+              <span>Suas chaves.</span>
+            </h1>
+            <p className="premium-login-description">
+              Acesse as credenciais e serviços da Maker com rastreabilidade e controle em cada
+              etapa.
+            </p>
 
-            {error && <p className="text-sm text-destructive">{error}</p>}
+            <form
+              onSubmit={handleSubmit}
+              noValidate
+              aria-busy={isSubmitting}
+              className="premium-login-fields"
+            >
+              <div className="premium-login-field">
+                <Label htmlFor="email">E-mail</Label>
+                <Input
+                  id="email"
+                  type="email"
+                  autoComplete="email"
+                  inputMode="email"
+                  placeholder="voce@maker.com"
+                  value={email}
+                  onChange={(event) => {
+                    setEmail(event.target.value);
+                    setError("");
+                    setFieldErrors((errors) => ({ ...errors, email: undefined }));
+                  }}
+                  aria-invalid={Boolean(fieldErrors.email)}
+                  aria-describedby={fieldErrors.email ? "email-error" : undefined}
+                  required
+                />
+                {fieldErrors.email && (
+                  <p id="email-error" className="premium-field-error">
+                    {fieldErrors.email}
+                  </p>
+                )}
+              </div>
 
-            <Button type="submit" className="w-full" size="lg">
-              Entrar
-            </Button>
-          </form>
+              <div className="premium-login-field">
+                <Label htmlFor="password">Senha</Label>
+                <div className="premium-password-field">
+                  <Input
+                    id="password"
+                    type={showPassword ? "text" : "password"}
+                    autoComplete="current-password"
+                    placeholder="••••••••"
+                    value={password}
+                    onChange={(event) => {
+                      setPassword(event.target.value);
+                      setError("");
+                      setFieldErrors((errors) => ({ ...errors, password: undefined }));
+                    }}
+                    aria-invalid={Boolean(fieldErrors.password)}
+                    aria-describedby={fieldErrors.password ? "password-error" : undefined}
+                    required
+                  />
+                  <button
+                    type="button"
+                    className="premium-password-toggle"
+                    onClick={() => setShowPassword((visible) => !visible)}
+                    aria-label={showPassword ? "Ocultar senha" : "Mostrar senha"}
+                    aria-pressed={showPassword}
+                  >
+                    {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </button>
+                </div>
+                {fieldErrors.password && (
+                  <p id="password-error" className="premium-field-error">
+                    {fieldErrors.password}
+                  </p>
+                )}
+              </div>
 
-          <p className="mt-5 text-center text-sm text-muted-foreground">
-            Novas contas precisam de um link de convite enviado por um administrador.
-          </p>
+              {error && (
+                <p className="premium-login-api-error" role="alert">
+                  {error}
+                </p>
+              )}
+
+              <Button type="submit" className="premium-login-submit" disabled={isSubmitting}>
+                {isSubmitting ? "Verificando acesso…" : "Entrar no Maker Wallet"}
+              </Button>
+            </form>
+
+            <p className="premium-login-notice">
+              Novas contas precisam de um link de convite enviado por um administrador.
+            </p>
+          </div>
         </div>
 
-        <div className="mt-6 flex items-center justify-center gap-2 text-center text-xs text-muted-foreground">
-          <ShieldCheck className="h-4 w-4 text-primary" />
+        {isSubmitting && (
+          <div className="premium-login-loading" role="status" aria-live="polite">
+            <div className="premium-login-loading-bar" aria-hidden="true">
+              <span />
+            </div>
+            <p>{loadingMessage}</p>
+            <span className="premium-login-loading-detail">
+              {loginStage === "opening"
+                ? "Acesso autorizado"
+                : "Validando credenciais e preparando seus acessos"}
+            </span>
+          </div>
+        )}
+
+        <footer className="premium-login-footer">
+          <ShieldCheck className="h-4 w-4 shrink-0" aria-hidden="true" />
           Acesso restrito aos colaboradores autorizados da Maker
-        </div>
-
-      </div>
-    </div>
+        </footer>
+      </PremiumVaultScroll>
+    </main>
   );
 }
