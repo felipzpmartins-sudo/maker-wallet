@@ -6,6 +6,13 @@ import { AppError } from "../utils/errors";
 import { signToken } from "../utils/jwt";
 import { sanitizeUser } from "../utils/sanitize";
 
+const adminAvatarPresets = new Set([
+  "admin-guardian",
+  "admin-orbit",
+  "admin-captain",
+  "admin-crystal"
+]);
+
 export async function login(email: string, password: string) {
   const user = await prisma.user.findUnique({
     where: { email }
@@ -100,6 +107,23 @@ export async function updateProfile(
   userId: string,
   data: { name?: string; email?: string; avatarPreset?: string | null }
 ) {
+  const currentUser = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { role: true }
+  });
+
+  if (!currentUser) {
+    throw new AppError(404, "User not found");
+  }
+
+  if (
+    data.avatarPreset &&
+    adminAvatarPresets.has(data.avatarPreset) &&
+    currentUser.role !== UserRole.ADMIN
+  ) {
+    throw new AppError(403, "Este avatar é exclusivo para administradores");
+  }
+
   const user = await prisma.user.update({
     where: { id: userId },
     data: {

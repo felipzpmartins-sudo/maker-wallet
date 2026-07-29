@@ -125,7 +125,9 @@
 }
 
 @layer base {
-  * { border-color: var(--color-border); }
+  * {
+    border-color: var(--color-border);
+  }
 
   body {
     background-color: #202021;
@@ -134,16 +136,71 @@
     text-rendering: optimizeLegibility;
   }
 
-  h1, h2, h3, h4 { font-family: var(--font-display); }
+  h1,
+  h2,
+  h3,
+  h4 {
+    font-family: var(--font-display);
+  }
 }
 
 @layer utilities {
   .app-surface {
-    background: radial-gradient(circle at 88% -8%, oklch(0.65 0.18 258 / 0.12), transparent 30rem), var(--background);
+    background:
+      radial-gradient(circle at 88% -8%, oklch(0.65 0.18 258 / 0.12), transparent 30rem),
+      var(--background);
   }
 
   .wallet-card {
     background: var(--gradient-card);
     box-shadow: var(--shadow-elegant);
+  }
+
+  @keyframes admin-avatar-float {
+    0%,
+    100% {
+      transform: translateY(0) scale(1);
+    }
+    50% {
+      transform: translateY(-3%) scale(1.035);
+    }
+  }
+
+  @keyframes admin-avatar-glow {
+    0%,
+    100% {
+      box-shadow:
+        0 0 0 1px rgb(249 216 102 / 0.36),
+        0 0 16px rgb(95 135 247 / 0.26);
+    }
+    50% {
+      box-shadow:
+        0 0 0 1px rgb(249 216 102 / 0.78),
+        0 0 27px rgb(124 101 230 / 0.56);
+    }
+  }
+
+  .avatar-admin {
+    animation: admin-avatar-glow 2.8s ease-in-out infinite;
+  }
+
+  .avatar-admin-image {
+    animation: admin-avatar-float 3.4s ease-in-out infinite;
+  }
+
+  .admin-avatar-option img {
+    animation: admin-avatar-float 3.8s ease-in-out infinite;
+  }
+
+  .admin-avatar-option:nth-child(even) img {
+    animation-delay: -1.7s;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .avatar-admin,
+    .avatar-admin-image,
+    .admin-avatar-option img {
+      animation: none;
+    }
   }
 }

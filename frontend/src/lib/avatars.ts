@@ -1,4 +1,4 @@
-export const avatarPresets = [
+export const makerAvatarPresets = [
   { id: "orbit", label: "Órbita", src: "/assets/avatars/orbit.svg" },
   { id: "pulse", label: "Pulso", src: "/assets/avatars/pulse.svg" },
   { id: "spark", label: "Faísca", src: "/assets/avatars/spark.svg" },
@@ -8,6 +8,36 @@ export const avatarPresets = [
   { id: "prisma", label: "Prisma", src: "/assets/avatars/prisma.svg" },
   { id: "flux", label: "Fluxo", src: "/assets/avatars/flux.svg" },
 ] as const;
+
+export const adminAvatarPresets = [
+  {
+    id: "admin-guardian",
+    label: "Guardião",
+    src: "/assets/avatars/admin-guardian.webp",
+    adminOnly: true,
+  },
+  { id: "admin-orbit", label: "Oráculo", src: "/assets/avatars/admin-orbit.webp", adminOnly: true },
+  {
+    id: "admin-captain",
+    label: "Comandante",
+    src: "/assets/avatars/admin-captain.webp",
+    adminOnly: true,
+  },
+  {
+    id: "admin-crystal",
+    label: "Sentinela",
+    src: "/assets/avatars/admin-crystal.webp",
+    adminOnly: true,
+  },
+] as const;
+
+export const avatarPresets = [...makerAvatarPresets, ...adminAvatarPresets] as const;
+
+const adminAvatarIds = new Set(adminAvatarPresets.map((avatar) => avatar.id));
+
+export function isAdminAvatarPreset(preset?: string | null) {
+  return !!preset && adminAvatarIds.has(preset);
+}
 
 export function getInitials(name?: string) {
   return (name ?? "MW")
