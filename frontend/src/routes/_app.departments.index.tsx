@@ -101,11 +101,11 @@ function DepartmentsPage() {
   }
 
   return (
-    <div className="space-y-8">
+    <div className="mx-auto max-w-7xl space-y-8">
       {!isCeo && (
         <div className="flex flex-wrap items-end justify-between gap-4">
           <div>
-            <p className="text-sm text-muted-foreground">
+            <p className="text-sm font-medium text-muted-foreground">
               Bem-vindo, <span className="text-foreground">{currentUser?.name}</span>
               {currentUser && (
                 <>
@@ -114,7 +114,8 @@ function DepartmentsPage() {
                 </>
               )}
             </p>
-            <h1 className="mt-1 font-display text-2xl font-semibold">Departamentos</h1>
+            <h1 className="mt-1 font-display text-3xl font-semibold tracking-tight sm:text-4xl">Departamentos</h1>
+            <p className="mt-2 text-sm text-muted-foreground">Selecione uma área para consultar seus acessos protegidos.</p>
           </div>
           <div className="flex items-center gap-3">
             <ConfidentialBadge />
@@ -137,8 +138,8 @@ function DepartmentsPage() {
           Nenhum acesso liberado ou cadastrado para voce.
         </div>
       ) : !isCeo ? (
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-          {sortedVisibleDepartments.map((dep) => {
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {sortedVisibleDepartments.map((dep, index) => {
             const Icon = departmentIcons[dep.iconKey] ?? KeyRound;
             const count = accesses.filter((access) =>
               getAccessDepartmentIds(access).includes(dep.id),
@@ -149,17 +150,24 @@ function DepartmentsPage() {
                 key={dep.id}
                 to="/departments/$id"
                 params={{ id: dep.id }}
-                className="group rounded-2xl border border-border bg-card p-5 transition-all hover:border-primary/50 hover:shadow-[var(--shadow-glow)]"
+                className="wallet-card group relative min-h-56 overflow-hidden rounded-[1.35rem] border border-border p-6 transition-all duration-300 hover:-translate-y-1 hover:border-primary/50 hover:shadow-[var(--shadow-glow)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               >
+                <div className="absolute -right-12 -top-12 h-32 w-32 rounded-full bg-primary/10 blur-2xl transition-opacity duration-300 group-hover:opacity-100" />
                 <div className="flex items-center justify-between">
-                  <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-primary/15 text-primary">
+                  <div className="relative flex h-12 w-12 items-center justify-center rounded-2xl bg-primary/15 text-primary ring-1 ring-primary/20">
                     <Icon className="h-5 w-5" />
                   </div>
-                  <ArrowRight className="h-4 w-4 text-muted-foreground transition-transform group-hover:translate-x-1 group-hover:text-primary" />
+                  <div className="flex h-8 w-8 items-center justify-center rounded-full bg-background/60 text-muted-foreground transition-all group-hover:bg-primary group-hover:text-primary-foreground">
+                    <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
+                  </div>
                 </div>
-                <h3 className="mt-4 font-display text-lg font-semibold">{dep.name}</h3>
-                <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">{dep.description}</p>
-                <p className="mt-3 text-xs font-medium text-primary">{count} acesso(s)</p>
+                <p className="mt-6 text-[0.65rem] font-bold tracking-[0.18em] text-primary/85">ÁREA {String(index + 1).padStart(2, "0")}</p>
+                <h3 className="mt-2 font-display text-xl font-semibold tracking-tight">{dep.name}</h3>
+                <p className="mt-2 line-clamp-2 text-sm leading-6 text-muted-foreground">{dep.description}</p>
+                <div className="mt-5 flex items-center gap-2 text-xs font-semibold text-primary">
+                  <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-primary/15 px-1.5">{count}</span>
+                  {count === 1 ? "acesso disponível" : "acessos disponíveis"}
+                </div>
               </Link>
             );
           })}

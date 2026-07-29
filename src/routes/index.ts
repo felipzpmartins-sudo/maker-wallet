@@ -5,6 +5,7 @@ import { accessRoutes } from "./accessRoutes";
 import { uploadRoutes } from "./uploadRoutes";
 import { renewalServiceRoutes } from "./renewalServiceRoutes";
 import { departmentRoutes } from "./departmentRoutes";
+import { conversationRoutes } from "./conversationRoutes";
 import { env } from "../config/env";
 
 export const routes = Router();
@@ -26,3 +27,4 @@ routes.use("/departments", departmentRoutes);
 routes.use("/access", accessRoutes);
 routes.use("/renewal-services", renewalServiceRoutes);
 routes.use("/upload", uploadRoutes);
+routes.use("/conversations", conversationRoutes);

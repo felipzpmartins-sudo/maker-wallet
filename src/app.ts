@@ -4,6 +4,7 @@ import helmet from "helmet";
 import { env } from "./config/env";
 import { routes } from "./routes";
 import { errorMiddleware } from "./middlewares/errorMiddleware";
+import { profilePhotoDirectory } from "./config/paths";
 
 export const app = express();
 
@@ -15,6 +16,7 @@ app.use(
   })
 );
 app.use(express.json({ limit: "1mb" }));
+app.use("/uploads/profile-photos", express.static(profilePhotoDirectory));
 
 app.use(routes);
 

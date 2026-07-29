@@ -1,8 +1,9 @@
 import { useEffect } from "react";
 import { createFileRoute, Outlet, useNavigate } from "@tanstack/react-router";
-import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
+import { SidebarProvider } from "@/components/ui/sidebar";
 import { Toaster } from "@/components/ui/sonner";
 import { AppSidebar } from "@/components/layout/AppSidebar";
+import { AppHeader } from "@/components/layout/AppHeader";
 import { useAuth } from "@/lib/auth-context";
 
 export const Route = createFileRoute("/_app")({
@@ -21,15 +22,12 @@ function AppLayout() {
   if (!currentUser) return null;
 
   return (
-    <SidebarProvider>
-      <div className="flex min-h-screen w-full bg-background">
+    <SidebarProvider defaultOpen={false}>
+      <div className="app-surface flex min-h-screen w-full">
         <AppSidebar />
         <div className="flex flex-1 flex-col">
-          <header className="sticky top-0 z-10 flex h-14 items-center gap-3 border-b border-border bg-background/80 px-4 backdrop-blur">
-            <SidebarTrigger />
-            <span className="font-display text-sm font-semibold tracking-tight">Maker Wallet</span>
-          </header>
-          <main className="flex-1 p-4 sm:p-6 lg:p-8">
+          <AppHeader />
+          <main className="flex-1 p-4 sm:p-6 lg:p-8 xl:p-10">
             <Outlet />
           </main>
         </div>

@@ -95,6 +95,8 @@ export interface AppUser {
   mustChangePassword?: boolean;
   mfaEnabled?: boolean;
   mfaSecret?: string;
+  avatarUrl?: string | null;
+  avatarPreset?: string | null;
 }
 
 export const ACCESS_TYPE_LABELS: Record<AccessType, string> = {

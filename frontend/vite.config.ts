@@ -7,6 +7,21 @@
 import { defineConfig } from "@lovable.dev/vite-tanstack-config";
 
 export default defineConfig({
+  vite: {
+    server: {
+      proxy: {
+        "/api": {
+          target: "https://maker-wallet-production.up.railway.app",
+          changeOrigin: true,
+          rewrite: (path) => path.replace(/^\/api/, ""),
+        },
+        "/uploads": {
+          target: "https://maker-wallet-production.up.railway.app",
+          changeOrigin: true,
+        },
+      },
+    },
+  },
   nitro: {
     preset: "vercel",
     output: {

@@ -19,3 +19,9 @@ export const changePasswordSchema = z.object({
 export const mfaCodeSchema = z.object({
   code: z.string().regex(/^\d{6}$/, "MFA code must have 6 digits")
 });
+
+export const updateProfileSchema = z.object({
+  name: z.string().min(2).max(100).optional(),
+  email: z.string().email().optional(),
+  avatarPreset: z.string().max(64).nullable().optional()
+});

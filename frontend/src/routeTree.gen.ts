@@ -19,8 +19,10 @@ import { Route as AppUsersRouteImport } from './routes/_app.users'
 import { Route as AppSettingsRouteImport } from './routes/_app.settings'
 import { Route as AppSecurityRouteImport } from './routes/_app.security'
 import { Route as AppRenewalsRouteImport } from './routes/_app.renewals'
+import { Route as AppProfileRouteImport } from './routes/_app.profile'
 import { Route as AppPermissionsRouteImport } from './routes/_app.permissions'
 import { Route as AppDashboardRouteImport } from './routes/_app.dashboard'
+import { Route as AppChatRouteImport } from './routes/_app.chat'
 import { Route as AppDepartmentsIndexRouteImport } from './routes/_app.departments.index'
 import { Route as AppDepartmentsIdRouteImport } from './routes/_app.departments.$id'
 
@@ -73,6 +75,11 @@ const AppRenewalsRoute = AppRenewalsRouteImport.update({
   path: '/renewals',
   getParentRoute: () => AppRoute,
 } as any)
+const AppProfileRoute = AppProfileRouteImport.update({
+  id: '/profile',
+  path: '/profile',
+  getParentRoute: () => AppRoute,
+} as any)
 const AppPermissionsRoute = AppPermissionsRouteImport.update({
   id: '/permissions',
   path: '/permissions',
@@ -81,6 +88,11 @@ const AppPermissionsRoute = AppPermissionsRouteImport.update({
 const AppDashboardRoute = AppDashboardRouteImport.update({
   id: '/dashboard',
   path: '/dashboard',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppChatRoute = AppChatRouteImport.update({
+  id: '/chat',
+  path: '/chat',
   getParentRoute: () => AppRoute,
 } as any)
 const AppDepartmentsIndexRoute = AppDepartmentsIndexRouteImport.update({
@@ -100,8 +112,10 @@ export interface FileRoutesByFullPath {
   '/login': typeof LoginRoute
   '/register': typeof RegisterRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
+  '/chat': typeof AppChatRoute
   '/dashboard': typeof AppDashboardRoute
   '/permissions': typeof AppPermissionsRoute
+  '/profile': typeof AppProfileRoute
   '/renewals': typeof AppRenewalsRoute
   '/security': typeof AppSecurityRoute
   '/settings': typeof AppSettingsRoute
@@ -115,8 +129,10 @@ export interface FileRoutesByTo {
   '/login': typeof LoginRoute
   '/register': typeof RegisterRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
+  '/chat': typeof AppChatRoute
   '/dashboard': typeof AppDashboardRoute
   '/permissions': typeof AppPermissionsRoute
+  '/profile': typeof AppProfileRoute
   '/renewals': typeof AppRenewalsRoute
   '/security': typeof AppSecurityRoute
   '/settings': typeof AppSettingsRoute
@@ -132,8 +148,10 @@ export interface FileRoutesById {
   '/login': typeof LoginRoute
   '/register': typeof RegisterRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
+  '/_app/chat': typeof AppChatRoute
   '/_app/dashboard': typeof AppDashboardRoute
   '/_app/permissions': typeof AppPermissionsRoute
+  '/_app/profile': typeof AppProfileRoute
   '/_app/renewals': typeof AppRenewalsRoute
   '/_app/security': typeof AppSecurityRoute
   '/_app/settings': typeof AppSettingsRoute
@@ -149,8 +167,10 @@ export interface FileRouteTypes {
     | '/login'
     | '/register'
     | '/sitemap.xml'
+    | '/chat'
     | '/dashboard'
     | '/permissions'
+    | '/profile'
     | '/renewals'
     | '/security'
     | '/settings'
@@ -164,8 +184,10 @@ export interface FileRouteTypes {
     | '/login'
     | '/register'
     | '/sitemap.xml'
+    | '/chat'
     | '/dashboard'
     | '/permissions'
+    | '/profile'
     | '/renewals'
     | '/security'
     | '/settings'
@@ -180,8 +202,10 @@ export interface FileRouteTypes {
     | '/login'
     | '/register'
     | '/sitemap.xml'
+    | '/_app/chat'
     | '/_app/dashboard'
     | '/_app/permissions'
+    | '/_app/profile'
     | '/_app/renewals'
     | '/_app/security'
     | '/_app/settings'
@@ -271,6 +295,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppRenewalsRouteImport
       parentRoute: typeof AppRoute
     }
+    '/_app/profile': {
+      id: '/_app/profile'
+      path: '/profile'
+      fullPath: '/profile'
+      preLoaderRoute: typeof AppProfileRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/_app/permissions': {
       id: '/_app/permissions'
       path: '/permissions'
@@ -283,6 +314,13 @@ declare module '@tanstack/react-router' {
       path: '/dashboard'
       fullPath: '/dashboard'
       preLoaderRoute: typeof AppDashboardRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/chat': {
+      id: '/_app/chat'
+      path: '/chat'
+      fullPath: '/chat'
+      preLoaderRoute: typeof AppChatRouteImport
       parentRoute: typeof AppRoute
     }
     '/_app/departments/': {
@@ -303,8 +341,10 @@ declare module '@tanstack/react-router' {
 }
 
 interface AppRouteChildren {
+  AppChatRoute: typeof AppChatRoute
   AppDashboardRoute: typeof AppDashboardRoute
   AppPermissionsRoute: typeof AppPermissionsRoute
+  AppProfileRoute: typeof AppProfileRoute
   AppRenewalsRoute: typeof AppRenewalsRoute
   AppSecurityRoute: typeof AppSecurityRoute
   AppSettingsRoute: typeof AppSettingsRoute
@@ -314,8 +354,10 @@ interface AppRouteChildren {
 }
 
 const AppRouteChildren: AppRouteChildren = {
+  AppChatRoute: AppChatRoute,
   AppDashboardRoute: AppDashboardRoute,
   AppPermissionsRoute: AppPermissionsRoute,
+  AppProfileRoute: AppProfileRoute,
   AppRenewalsRoute: AppRenewalsRoute,
   AppSecurityRoute: AppSecurityRoute,
   AppSettingsRoute: AppSettingsRoute,

@@ -42,6 +42,23 @@ enum RenewalInterval {
   CUSTOM
 }
 
+enum ConversationType {
+  DIRECT
+  ADMIN_SUPPORT
+  ACCESS_REQUEST
+}
+
+enum ChatMessageKind {
+  TEXT
+  SYSTEM
+}
+
+enum AccessRequestStatus {
+  OPEN
+  IN_PROGRESS
+  RESOLVED
+}
+
 model User {
   id          String             @id @default(uuid())
   name        String
@@ -54,6 +71,8 @@ model User {
   mustChangePassword Boolean      @default(false)
   mfaSecret   String?
   mfaEnabled  Boolean            @default(false)
+  avatarUrl   String?
+  avatarPreset String?
   createdAt   DateTime           @default(now())
   updatedAt   DateTime           @updatedAt
 
@@ -62,6 +81,72 @@ model User {
   permissions AccessPermission[]
   auditLogs   AuditLog[]
   passwordResetTokens PasswordResetToken[]
+  createdConversations Conversation[] @relation("ConversationCreatedBy")
+  conversationParticipants ConversationParticipant[]
+  chatMessages ChatMessage[] @relation("ChatMessageSender")
+  accessRequests AccessRequest[] @relation("AccessRequestRequester")
+}
+
+model Conversation {
+  id          String             @id @default(uuid())
+  type        ConversationType
+  createdById String
+  createdAt   DateTime           @default(now())
+  updatedAt   DateTime           @updatedAt
+
+  createdBy   User               @relation("ConversationCreatedBy", fields: [createdById], references: [id])
+  participants ConversationParticipant[]
+  messages    ChatMessage[]
+  accessRequest AccessRequest?
+
+  @@index([updatedAt])
+  @@index([createdById])
+}
+
+model ConversationParticipant {
+  conversationId String
+  userId         String
+  lastReadAt     DateTime?
+  joinedAt       DateTime @default(now())
+
+  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([conversationId, userId])
+  @@index([userId])
+}
+
+model ChatMessage {
+  id             String          @id @default(uuid())
+  conversationId String
+  senderId       String
+  kind           ChatMessageKind @default(TEXT)
+  content        String          @db.Text
+  createdAt      DateTime        @default(now())
+
+  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  sender       User         @relation("ChatMessageSender", fields: [senderId], references: [id])
+
+  @@index([conversationId, createdAt])
+  @@index([senderId])
+}
+
+model AccessRequest {
+  id             String              @id @default(uuid())
+  conversationId String              @unique
+  requesterId    String
+  category       String
+  subject        String
+  details        String?             @db.Text
+  status         AccessRequestStatus @default(OPEN)
+  createdAt      DateTime            @default(now())
+  updatedAt      DateTime            @updatedAt
+
+  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  requester    User         @relation("AccessRequestRequester", fields: [requesterId], references: [id])
+
+  @@index([requesterId])
+  @@index([status])
 }
 
 model PasswordResetToken {

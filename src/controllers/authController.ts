@@ -26,3 +26,8 @@ export async function me(request: Request, response: Response) {
   const result = await authService.me(request.user!.id);
   return response.json(success(result));
 }
+
+export async function updateProfile(request: Request, response: Response) {
+  const result = await authService.updateProfile(request.user!.id, request.body);
+  return response.json(success(result, "Perfil atualizado"));
+}

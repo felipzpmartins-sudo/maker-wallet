@@ -8,6 +8,8 @@ import {
   Settings,
   LogOut,
   Vault,
+  UserRound,
+  MessageCircle,
 } from "lucide-react";
 import {
   Sidebar,
@@ -22,15 +24,16 @@ import {
   SidebarMenuItem,
 } from "@/components/ui/sidebar";
 import { useAuth } from "@/lib/auth-context";
-import { ROLE_LABELS } from "@/lib/mock-data";
 
 const baseItems = [
   { title: "Acessos", url: "/departments", icon: FolderLock },
+  { title: "Chat", url: "/chat", icon: MessageCircle },
   { title: "Seguranca", url: "/security", icon: KeyRound },
+  { title: "Meu perfil", url: "/profile", icon: UserRound },
 ];
 
 export function AppSidebar() {
-  const { currentUser, isAdmin, isCeo, canManagePermissions, logout } = useAuth();
+  const { isAdmin, isCeo, canManagePermissions, logout } = useAuth();
   const path = useRouterState({ select: (s) => s.location.pathname });
   const isActive = (url: string) => path === url || path.startsWith(url + "/");
   const menuItems = [
@@ -46,10 +49,10 @@ export function AppSidebar() {
   ];
 
   return (
-    <Sidebar collapsible="icon">
-      <SidebarHeader className="border-b border-sidebar-border">
-        <div className="flex items-center gap-2.5 px-1.5 py-2">
-          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary text-primary-foreground">
+    <Sidebar collapsible="icon" className="border-r border-sidebar-border">
+      <SidebarHeader className="border-b border-sidebar-border px-2 py-3">
+        <div className="flex items-center gap-2.5 px-1.5 py-1">
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[image:var(--gradient-vault)] text-primary-foreground shadow-[var(--shadow-glow)]">
             <Vault className="h-5 w-5" />
           </div>
           <div className="flex flex-col leading-tight group-data-[collapsible=icon]:hidden">
@@ -59,14 +62,19 @@ export function AppSidebar() {
         </div>
       </SidebarHeader>
 
-      <SidebarContent>
-        <SidebarGroup>
+      <SidebarContent className="px-2 py-3">
+        <SidebarGroup className="px-0">
           <SidebarGroupLabel>Menu</SidebarGroupLabel>
-          <SidebarGroupContent>
+          <SidebarGroupContent className="px-0">
             <SidebarMenu>
               {menuItems.map((item) => (
                 <SidebarMenuItem key={item.url}>
-                  <SidebarMenuButton asChild isActive={isActive(item.url)} tooltip={item.title}>
+                  <SidebarMenuButton
+                    asChild
+                    isActive={isActive(item.url)}
+                    tooltip={item.title}
+                    className="h-10 rounded-xl data-[active=true]:bg-sidebar-primary data-[active=true]:text-sidebar-primary-foreground"
+                  >
                     <Link to={item.url}>
                       <item.icon />
                       <span>{item.title}</span>
@@ -79,13 +87,18 @@ export function AppSidebar() {
         </SidebarGroup>
 
         {adminItems.length > 0 && (
-          <SidebarGroup>
+          <SidebarGroup className="px-0">
             <SidebarGroupLabel>Administração</SidebarGroupLabel>
-            <SidebarGroupContent>
+            <SidebarGroupContent className="px-0">
               <SidebarMenu>
                 {adminItems.map((item) => (
                   <SidebarMenuItem key={item.url}>
-                    <SidebarMenuButton asChild isActive={isActive(item.url)} tooltip={item.title}>
+                    <SidebarMenuButton
+                      asChild
+                      isActive={isActive(item.url)}
+                      tooltip={item.title}
+                      className="h-10 rounded-xl data-[active=true]:bg-sidebar-primary data-[active=true]:text-sidebar-primary-foreground"
+                    >
                       <Link to={item.url}>
                         <item.icon />
                         <span>{item.title}</span>
@@ -99,18 +112,7 @@ export function AppSidebar() {
         )}
       </SidebarContent>
 
-      <SidebarFooter className="border-t border-sidebar-border">
-        <div className="flex items-center gap-2 px-1.5 py-1.5 group-data-[collapsible=icon]:hidden">
-          <div className="flex h-8 w-8 items-center justify-center rounded-full bg-sidebar-accent text-xs font-semibold uppercase">
-            {currentUser?.name.slice(0, 2)}
-          </div>
-          <div className="flex min-w-0 flex-col leading-tight">
-            <span className="truncate text-sm font-medium">{currentUser?.name}</span>
-            <span className="text-xs text-primary">
-              {currentUser ? ROLE_LABELS[currentUser.role] : ""}
-            </span>
-          </div>
-        </div>
+      <SidebarFooter className="border-t border-sidebar-border px-2 py-3">
         <SidebarMenu>
           <SidebarMenuItem>
             <SidebarMenuButton onClick={logout} tooltip="Sair">

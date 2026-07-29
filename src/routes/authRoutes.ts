@@ -8,7 +8,8 @@ import {
   changePasswordSchema,
   loginSchema,
   mfaCodeSchema,
-  registerSchema
+  registerSchema,
+  updateProfileSchema
 } from "../schemas/authSchemas";
 
 export const authRoutes = Router();
@@ -29,6 +30,7 @@ authRoutes.post(
   authController.changePassword
 );
 authRoutes.get("/me", authMiddleware, authController.me);
+authRoutes.patch("/profile", authMiddleware, validate({ body: updateProfileSchema }), authController.updateProfile);
 authRoutes.post("/mfa/setup", authMiddleware, mfaController.setup);
 authRoutes.post("/mfa/confirm", authMiddleware, validate({ body: mfaCodeSchema }), mfaController.confirm);
 authRoutes.post("/mfa/disable", authMiddleware, validate({ body: mfaCodeSchema }), mfaController.disable);

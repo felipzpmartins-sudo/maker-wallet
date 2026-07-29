@@ -7,7 +7,8 @@ import {
   type RenewalService,
   getAccessDepartmentIds,
 } from "./mock-data";
-import { ApiError, apiRequest } from "./api";
+import { ApiError, apiFormRequest, apiRequest } from "./api";
+import type { ChatContact, ChatConversation, ChatConversationDetail, ChatMessage } from "./chat";
 
 interface AuthContextValue {
   currentUser: AppUser | null;
@@ -26,6 +27,9 @@ interface AuthContextValue {
   logout: () => void;
   // admin actions
   updateUser: (id: string, patch: Partial<AppUser>) => Promise<void>;
+  updateProfile: (patch: Pick<AppUser, "name" | "email" | "avatarPreset">) => Promise<void>;
+  uploadProfilePhoto: (file: File) => Promise<void>;
+  removeProfilePhoto: () => Promise<void>;
   addDepartment: (dep: Department) => Promise<void>;
   updateDepartment: (id: string, patch: Partial<Department>) => Promise<void>;
   deleteDepartment: (id: string) => Promise<void>;
@@ -46,6 +50,15 @@ interface AuthContextValue {
   deleteUser: (id: string) => Promise<void>;
   resetUserMfa: (id: string) => Promise<void>;
   resetUserPassword: (id: string, password: string) => Promise<void>;
+  // Central de Conversas
+  listChatContacts: () => Promise<ChatContact[]>;
+  listConversations: () => Promise<ChatConversation[]>;
+  getConversationMessages: (conversationId: string) => Promise<ChatConversationDetail>;
+  startDirectConversation: (participantId: string) => Promise<ChatConversation>;
+  startSupportConversation: () => Promise<ChatConversation>;
+  createAccessRequest: (data: { category: string; subject: string; details?: string }) => Promise<ChatConversation>;
+  sendConversationMessage: (conversationId: string, content: string) => Promise<ChatMessage>;
+  updateConversationRequest: (conversationId: string, status: "OPEN" | "IN_PROGRESS" | "RESOLVED") => Promise<void>;
   // helpers
   isAdmin: boolean;
   isCeo: boolean;
@@ -69,6 +82,56 @@ const storageKeys = {
 
 const legacyStorageKeys = Object.values(storageKeys);
 
+type TemporaryProfile = Pick<AppUser, "name" | "email" | "avatarUrl" | "avatarPreset">;
+
+function temporaryProfileKey(userId: string) {
+  return `maker-wallet:temporary-profile:${userId}`;
+}
+
+function readTemporaryProfile(user: AppUser): AppUser {
+  if (typeof window === "undefined") return user;
+  try {
+    const raw = window.localStorage.getItem(temporaryProfileKey(user.id));
+    return raw ? { ...user, ...(JSON.parse(raw) as TemporaryProfile) } : user;
+  } catch {
+    return user;
+  }
+}
+
+function saveTemporaryProfile(user: AppUser) {
+  if (typeof window === "undefined") return;
+  // TODO: Remove this fallback after the hosted API deploys /auth/profile and /upload/profile-photo.
+  const profile: TemporaryProfile = {
+    name: user.name,
+    email: user.email,
+    avatarUrl: user.avatarUrl,
+    avatarPreset: user.avatarPreset,
+  };
+  try {
+    window.localStorage.setItem(temporaryProfileKey(user.id), JSON.stringify(profile));
+  } catch {
+    console.warn("Não foi possível persistir temporariamente a foto no navegador.");
+  }
+}
+
+function clearTemporaryProfile(userId: string) {
+  if (typeof window === "undefined") return;
+  window.localStorage.removeItem(temporaryProfileKey(userId));
+}
+
+function usesUnavailableProfileEndpoint(error: unknown) {
+  return error instanceof ApiError && [404, 405, 501].includes(error.status);
+}
+
+function readFileAsDataUrl(file: File) {
+  return new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error("Não foi possível ler a imagem selecionada."));
+    reader.onload = () => resolve(String(reader.result));
+    reader.readAsDataURL(file);
+  });
+}
+
 interface ApiUser {
   id: string;
   name: string;
@@ -79,6 +142,8 @@ interface ApiUser {
   canManagePermissions?: boolean;
   mustChangePassword?: boolean;
   mfaEnabled?: boolean;
+  avatarUrl?: string | null;
+  avatarPreset?: string | null;
 }
 
 interface LoginResponse {
@@ -162,6 +227,8 @@ function mapApiUser(user: ApiUser): AppUser {
     canManagePermissions: user.canManagePermissions,
     mustChangePassword: user.mustChangePassword,
     mfaEnabled: user.mfaEnabled,
+    avatarUrl: user.avatarUrl,
+    avatarPreset: user.avatarPreset,
   };
 }
 
@@ -357,7 +424,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           method: "POST",
           body: JSON.stringify({ email, password }),
         });
-        const mappedUser = mapApiUser(result.user);
+        const mappedUser = readTemporaryProfile(mapApiUser(result.user));
         setToken(result.token);
         setCurrentUser(mappedUser);
         clearLegacyLocalStorage();
@@ -443,6 +510,76 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     });
     await syncUsersFromApi(token);
   }, [syncUsersFromApi, token]);
+
+  const updateCurrentUser = useCallback((apiUser: ApiUser) => {
+    const user = mapApiUser(apiUser);
+    setCurrentUser(user);
+    setUsers((previous) => previous.map((item) => (item.id === user.id ? user : item)));
+  }, []);
+
+  const updateProfile = useCallback(async (patch: Pick<AppUser, "name" | "email" | "avatarPreset">) => {
+    if (!token) throw new Error("Sessão expirada. Faça login novamente.");
+    try {
+      const result = await apiRequest<ApiUser>("/auth/profile", {
+        method: "PATCH",
+        token,
+        body: JSON.stringify({
+          name: patch.name,
+          email: patch.email,
+          avatarPreset: patch.avatarPreset,
+        }),
+      });
+      clearTemporaryProfile(result.id);
+      updateCurrentUser(result);
+    } catch (error) {
+      if (!usesUnavailableProfileEndpoint(error)) throw error;
+      setCurrentUser((previous) => {
+        if (!previous) return previous;
+        const updated = {
+          ...previous,
+          ...patch,
+          avatarUrl: patch.avatarPreset ? null : previous.avatarUrl,
+        };
+        saveTemporaryProfile(updated);
+        return updated;
+      });
+    }
+  }, [token, updateCurrentUser]);
+
+  const uploadProfilePhoto = useCallback(async (file: File) => {
+    if (!token) throw new Error("Sessão expirada. Faça login novamente.");
+    try {
+      const result = await apiFormRequest<ApiUser>("/upload/profile-photo", file, token);
+      clearTemporaryProfile(result.id);
+      updateCurrentUser(result);
+    } catch (error) {
+      if (!usesUnavailableProfileEndpoint(error)) throw error;
+      const avatarUrl = await readFileAsDataUrl(file);
+      setCurrentUser((previous) => {
+        if (!previous) return previous;
+        const updated = { ...previous, avatarUrl, avatarPreset: null };
+        saveTemporaryProfile(updated);
+        return updated;
+      });
+    }
+  }, [token, updateCurrentUser]);
+
+  const removeProfilePhoto = useCallback(async () => {
+    if (!token) throw new Error("Sessão expirada. Faça login novamente.");
+    try {
+      const result = await apiRequest<ApiUser>("/upload/profile-photo", { method: "DELETE", token });
+      clearTemporaryProfile(result.id);
+      updateCurrentUser(result);
+    } catch (error) {
+      if (!usesUnavailableProfileEndpoint(error)) throw error;
+      setCurrentUser((previous) => {
+        if (!previous) return previous;
+        const updated = { ...previous, avatarUrl: null };
+        saveTemporaryProfile(updated);
+        return updated;
+      });
+    }
+  }, [token, updateCurrentUser]);
 
   const deleteUser = useCallback(async (id: string) => {
     if (!token) {
@@ -655,6 +792,66 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     throw new Error("Sessao expirada. Faca login novamente.");
   }, [syncRenewalServicesFromApi, token]);
 
+  const requireChatToken = useCallback(() => {
+    if (!token) throw new Error("Sessão expirada. Faça login novamente.");
+    return token;
+  }, [token]);
+
+  const listChatContacts = useCallback(async () => {
+    return apiRequest<ChatContact[]>("/conversations/contacts", { token: requireChatToken() });
+  }, [requireChatToken]);
+
+  const listConversations = useCallback(async () => {
+    return apiRequest<ChatConversation[]>("/conversations", { token: requireChatToken() });
+  }, [requireChatToken]);
+
+  const getConversationMessages = useCallback(async (conversationId: string) => {
+    return apiRequest<ChatConversationDetail>(`/conversations/${conversationId}/messages`, { token: requireChatToken() });
+  }, [requireChatToken]);
+
+  const startDirectConversation = useCallback(async (participantId: string) => {
+    return apiRequest<ChatConversation>("/conversations/direct", {
+      method: "POST",
+      token: requireChatToken(),
+      body: JSON.stringify({ participantId }),
+    });
+  }, [requireChatToken]);
+
+  const startSupportConversation = useCallback(async () => {
+    return apiRequest<ChatConversation>("/conversations/support", {
+      method: "POST",
+      token: requireChatToken(),
+      body: JSON.stringify({}),
+    });
+  }, [requireChatToken]);
+
+  const createAccessRequest = useCallback(async (data: { category: string; subject: string; details?: string }) => {
+    return apiRequest<ChatConversation>("/conversations/access-requests", {
+      method: "POST",
+      token: requireChatToken(),
+      body: JSON.stringify(data),
+    });
+  }, [requireChatToken]);
+
+  const sendConversationMessage = useCallback(async (conversationId: string, content: string) => {
+    return apiRequest<ChatMessage>(`/conversations/${conversationId}/messages`, {
+      method: "POST",
+      token: requireChatToken(),
+      body: JSON.stringify({ content }),
+    });
+  }, [requireChatToken]);
+
+  const updateConversationRequest = useCallback(async (
+    conversationId: string,
+    status: "OPEN" | "IN_PROGRESS" | "RESOLVED",
+  ) => {
+    await apiRequest(`/conversations/${conversationId}/access-request`, {
+      method: "PATCH",
+      token: requireChatToken(),
+      body: JSON.stringify({ status }),
+    });
+  }, [requireChatToken]);
+
   useEffect(() => {
     if (!token) return;
     void syncDepartmentsFromApi(token);
@@ -695,6 +892,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         register,
         logout,
         updateUser,
+        updateProfile,
+        uploadProfilePhoto,
+        removeProfilePhoto,
         addDepartment,
         updateDepartment,
         deleteDepartment,
@@ -711,6 +911,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         deleteUser,
         resetUserMfa,
         resetUserPassword,
+        listChatContacts,
+        listConversations,
+        getConversationMessages,
+        startDirectConversation,
+        startSupportConversation,
+        createAccessRequest,
+        sendConversationMessage,
+        updateConversationRequest,
         isAdmin,
         isCeo,
         canManagePermissions,

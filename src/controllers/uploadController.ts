@@ -7,6 +7,8 @@ import { AppError } from "../utils/errors";
 import { canAccess } from "../services/permissionService";
 import { attachKeystore } from "../services/accessService";
 import { createAuditLog } from "../services/auditLogService";
+import * as authService from "../services/authService";
+import { profilePhotoDirectory } from "../config/paths";
 
 async function removeUploadedFile(filePath: string) {
   try {
@@ -14,6 +16,11 @@ async function removeUploadedFile(filePath: string) {
   } catch (error) {
     console.error(`Failed to remove uploaded file ${filePath}`, error);
   }
+}
+
+function getProfilePhotoPath(avatarUrl?: string | null) {
+  if (!avatarUrl?.startsWith("/uploads/profile-photos/")) return undefined;
+  return path.join(profilePhotoDirectory, path.basename(avatarUrl));
 }
 
 export async function uploadKeystore(request: Request, response: Response) {
@@ -63,4 +70,30 @@ export async function downloadKeystore(request: Request, response: Response) {
     accessItem.keystoreFilePath,
     path.basename(accessItem.keystoreFilePath)
   );
+}
+
+export async function uploadProfilePhoto(request: Request, response: Response) {
+  if (!request.file) {
+    throw new AppError(400, "Foto de perfil é obrigatória");
+  }
+
+  const avatarUrl = `/uploads/profile-photos/${request.file.filename}`;
+  const currentUser = await authService.me(request.user!.id);
+  try {
+    const result = await authService.updateProfilePhoto(request.user!.id, avatarUrl);
+    const oldPhotoPath = getProfilePhotoPath(currentUser.avatarUrl);
+    if (oldPhotoPath) await removeUploadedFile(oldPhotoPath);
+    return response.status(201).json(success(result, "Foto de perfil atualizada"));
+  } catch (error) {
+    await removeUploadedFile(request.file.path);
+    throw error;
+  }
+}
+
+export async function removeProfilePhoto(request: Request, response: Response) {
+  const currentUser = await authService.me(request.user!.id);
+  const result = await authService.removeProfilePhoto(request.user!.id);
+  const photoPath = getProfilePhotoPath(currentUser.avatarUrl);
+  if (photoPath) await removeUploadedFile(photoPath);
+  return response.json(success(result, "Foto de perfil removida"));
 }

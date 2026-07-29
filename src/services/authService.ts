@@ -95,3 +95,38 @@ export async function me(userId: string) {
 
   return sanitizeUser(user);
 }
+
+export async function updateProfile(
+  userId: string,
+  data: { name?: string; email?: string; avatarPreset?: string | null }
+) {
+  const user = await prisma.user.update({
+    where: { id: userId },
+    data: {
+      name: data.name,
+      email: data.email?.toLowerCase(),
+      avatarPreset: data.avatarPreset,
+      ...(data.avatarPreset ? { avatarUrl: null } : {})
+    }
+  });
+
+  return sanitizeUser(user);
+}
+
+export async function updateProfilePhoto(userId: string, avatarUrl: string) {
+  const user = await prisma.user.update({
+    where: { id: userId },
+    data: { avatarUrl, avatarPreset: null }
+  });
+
+  return sanitizeUser(user);
+}
+
+export async function removeProfilePhoto(userId: string) {
+  const user = await prisma.user.update({
+    where: { id: userId },
+    data: { avatarUrl: null }
+  });
+
+  return sanitizeUser(user);
+}
