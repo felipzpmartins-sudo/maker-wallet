@@ -13,20 +13,25 @@ export const adminAvatarPresets = [
   {
     id: "admin-guardian",
     label: "Guardião",
-    src: "/assets/avatars/admin-guardian.webp",
+    src: "/assets/avatars/admin-guardian-final.png",
     adminOnly: true,
   },
-  { id: "admin-orbit", label: "Oráculo", src: "/assets/avatars/admin-orbit.webp", adminOnly: true },
+  {
+    id: "admin-orbit",
+    label: "Oráculo",
+    src: "/assets/avatars/admin-orbit-final.png",
+    adminOnly: true,
+  },
   {
     id: "admin-captain",
     label: "Comandante",
-    src: "/assets/avatars/admin-captain.webp",
+    src: "/assets/avatars/admin-captain-final.png",
     adminOnly: true,
   },
   {
     id: "admin-crystal",
     label: "Sentinela",
-    src: "/assets/avatars/admin-crystal.webp",
+    src: "/assets/avatars/admin-crystal-final.png",
     adminOnly: true,
   },
 ] as const;
