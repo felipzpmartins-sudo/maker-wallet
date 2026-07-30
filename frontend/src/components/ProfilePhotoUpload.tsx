@@ -10,7 +10,14 @@ interface ProfilePhotoUploadProps {
 }
 
 const acceptedTypes = new Set(["image/jpeg", "image/png", "image/webp"]);
+const acceptedExtensions = new Set(["jpg", "jpeg", "png", "webp"]);
 const maxSize = 5 * 1024 * 1024;
+
+function isAcceptedImage(file: File) {
+  if (acceptedTypes.has(file.type)) return true;
+  const extension = file.name.split(".").pop()?.toLowerCase();
+  return Boolean(extension && acceptedExtensions.has(extension));
+}
 
 export function ProfilePhotoUpload({ imageUrl, name, onChange, onRemove }: ProfilePhotoUploadProps) {
   const [preview, setPreview] = useState(imageUrl);
@@ -22,7 +29,9 @@ export function ProfilePhotoUpload({ imageUrl, name, onChange, onRemove }: Profi
 
   const selectFile = (file?: File) => {
     if (!file) return;
-    if (!acceptedTypes.has(file.type)) {
+    // Alguns seletores de arquivo no Android não preenchem `type`, mesmo para
+    // imagens válidas. A API continua validando a extensão antes de gravar.
+    if (!isAcceptedImage(file)) {
       setError("Use uma imagem JPG, PNG ou WEBP.");
       return;
     }

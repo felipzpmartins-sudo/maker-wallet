@@ -1,6 +1,6 @@
 import path from "path";
 import fs from "fs/promises";
-import { Request, Response } from "express";
+import { NextFunction, Request, Response } from "express";
 import { prisma } from "../prisma/client";
 import { success } from "../utils/apiResponse";
 import { AppError } from "../utils/errors";
@@ -8,7 +8,6 @@ import { canAccess } from "../services/permissionService";
 import { attachKeystore } from "../services/accessService";
 import { createAuditLog } from "../services/auditLogService";
 import * as authService from "../services/authService";
-import { profilePhotoDirectory } from "../config/paths";
 
 async function removeUploadedFile(filePath: string) {
   try {
@@ -18,9 +17,18 @@ async function removeUploadedFile(filePath: string) {
   }
 }
 
-function getProfilePhotoPath(avatarUrl?: string | null) {
-  if (!avatarUrl?.startsWith("/uploads/profile-photos/")) return undefined;
-  return path.join(profilePhotoDirectory, path.basename(avatarUrl));
+function profilePhotoMimeType(filename: string) {
+  switch (path.extname(filename).toLowerCase()) {
+    case ".jpg":
+    case ".jpeg":
+      return "image/jpeg";
+    case ".png":
+      return "image/png";
+    case ".webp":
+      return "image/webp";
+    default:
+      throw new AppError(400, "Formato de foto inválido. Envie JPG, PNG ou WEBP.");
+  }
 }
 
 export async function uploadKeystore(request: Request, response: Response) {
@@ -77,23 +85,45 @@ export async function uploadProfilePhoto(request: Request, response: Response) {
     throw new AppError(400, "Foto de perfil é obrigatória");
   }
 
-  const avatarUrl = `/uploads/profile-photos/${request.file.filename}`;
-  const currentUser = await authService.me(request.user!.id);
-  try {
-    const result = await authService.updateProfilePhoto(request.user!.id, avatarUrl);
-    const oldPhotoPath = getProfilePhotoPath(currentUser.avatarUrl);
-    if (oldPhotoPath) await removeUploadedFile(oldPhotoPath);
-    return response.status(201).json(success(result, "Foto de perfil atualizada"));
-  } catch (error) {
-    await removeUploadedFile(request.file.path);
-    throw error;
-  }
+  const userId = request.user!.id;
+  const content = Uint8Array.from(request.file.buffer);
+  const mimeType = profilePhotoMimeType(request.file.originalname);
+  const photo = await prisma.profilePhoto.upsert({
+    where: { userId },
+    create: {
+      userId,
+      content,
+      mimeType
+    },
+    update: {
+      content,
+      mimeType
+    }
+  });
+  const avatarUrl = `/uploads/profile-photos/${userId}?v=${photo.updatedAt.getTime()}`;
+  const result = await authService.updateProfilePhoto(userId, avatarUrl);
+  return response.status(201).json(success(result, "Foto de perfil atualizada"));
 }
 
 export async function removeProfilePhoto(request: Request, response: Response) {
-  const currentUser = await authService.me(request.user!.id);
-  const result = await authService.removeProfilePhoto(request.user!.id);
-  const photoPath = getProfilePhotoPath(currentUser.avatarUrl);
-  if (photoPath) await removeUploadedFile(photoPath);
+  const userId = request.user!.id;
+  await prisma.profilePhoto.deleteMany({ where: { userId } });
+  const result = await authService.removeProfilePhoto(userId);
   return response.json(success(result, "Foto de perfil removida"));
+}
+
+export async function getProfilePhoto(request: Request, response: Response, next: NextFunction) {
+  const photo = await prisma.profilePhoto.findUnique({
+    where: { userId: String(request.params.userId) }
+  });
+
+  // Mantém acessíveis as fotos antigas que ainda estejam no diretório de uploads
+  // durante a transição para o armazenamento persistente.
+  if (!photo) return next();
+
+  response.set({
+    "Cache-Control": "public, max-age=31536000, immutable",
+    "Cross-Origin-Resource-Policy": "cross-origin"
+  });
+  return response.type(photo.mimeType).send(photo.content);
 }

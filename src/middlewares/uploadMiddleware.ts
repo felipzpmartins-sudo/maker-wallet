@@ -1,6 +1,6 @@
 import path from "path";
 import multer from "multer";
-import { profilePhotoDirectory, uploadDirectory } from "../config/paths";
+import { uploadDirectory } from "../config/paths";
 import { AppError } from "../utils/errors";
 
 const storage = multer.diskStorage({
@@ -29,23 +29,16 @@ export const keystoreUpload = multer({
   }
 });
 
-const profilePhotoStorage = multer.diskStorage({
-  destination: profilePhotoDirectory,
-  filename: (_request, file, callback) => {
-    const extension = path.extname(file.originalname).toLowerCase();
-    callback(null, `${Date.now()}-profile${extension}`);
-  }
-});
-
 const allowedProfilePhotoExtensions = new Set([".jpg", ".jpeg", ".png", ".webp"]);
-const allowedProfilePhotoMimeTypes = new Set(["image/jpeg", "image/png", "image/webp"]);
 
 export const profilePhotoUpload = multer({
-  storage: profilePhotoStorage,
+  // Fotos de perfil são persistidas no banco pelo controller. Assim elas não
+  // desaparecem quando a instância do servidor é reiniciada ou recriada.
+  storage: multer.memoryStorage(),
   limits: { fileSize: 5 * 1024 * 1024 },
   fileFilter: (_request, file, callback) => {
     const extension = path.extname(file.originalname).toLowerCase();
-    if (!allowedProfilePhotoExtensions.has(extension) || !allowedProfilePhotoMimeTypes.has(file.mimetype)) {
+    if (!allowedProfilePhotoExtensions.has(extension)) {
       return callback(new AppError(400, "Formato de foto inválido. Envie JPG, PNG ou WEBP."));
     }
     return callback(null, true);

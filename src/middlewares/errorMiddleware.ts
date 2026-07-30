@@ -1,4 +1,5 @@
 import { NextFunction, Request, Response } from "express";
+import { MulterError } from "multer";
 import { Prisma } from "@prisma/client";
 import { ZodError } from "zod";
 import { failure } from "../utils/apiResponse";
@@ -16,6 +17,13 @@ export function errorMiddleware(
 
   if (error instanceof ZodError) {
     return response.status(400).json(failure("Validation error", error.flatten()));
+  }
+
+  if (error instanceof MulterError) {
+    if (error.code === "LIMIT_FILE_SIZE") {
+      return response.status(400).json(failure("A imagem deve ter no máximo 5 MB."));
+    }
+    return response.status(400).json(failure("Não foi possível processar o arquivo enviado."));
   }
 
   if (error instanceof Prisma.PrismaClientKnownRequestError) {
