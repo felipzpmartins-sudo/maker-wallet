@@ -39,6 +39,7 @@ export interface AccessEntry {
   id: string;
   departmentId: string;
   departmentIds?: string[];
+  createdById?: string;
   createdBy?: {
     id: string;
     name: string;

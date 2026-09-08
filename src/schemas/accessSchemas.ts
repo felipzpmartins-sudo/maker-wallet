@@ -53,3 +53,7 @@ export const permissionSchema = z.object({
 export const revealPasswordSchema = z.object({
   mfaCode: z.string().regex(/^\d{6}$/, "MFA code must have 6 digits")
 });
+
+export const updateAccessPasswordSchema = z.object({
+  password: z.string().min(1, "Password is required")
+});

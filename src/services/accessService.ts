@@ -294,6 +294,17 @@ export async function updateAccess(
     throw new AppError(403, "Access denied");
   }
 
+  if (data.password !== undefined) {
+    const current = await prisma.accessItem.findUnique({
+      where: { id },
+      select: { createdById: true }
+    });
+
+    if (current && current.createdById !== user.id && user.role !== UserRole.ADMIN) {
+      throw new AppError(403, "Only the creator or an admin can change this password");
+    }
+  }
+
   const accessItem = await prisma.accessItem.update({
     where: { id },
     data: buildAccessData(data)
@@ -302,6 +313,44 @@ export async function updateAccess(
   await createAuditLog({
     userId: user.id,
     action: "ACCESS_UPDATED",
+    accessItemId: id,
+    ipAddress
+  });
+
+  return sanitizeAccessItem(accessItem);
+}
+
+export async function updateAccessPassword(
+  id: string,
+  password: string,
+  user: Express.User,
+  ipAddress?: string
+) {
+  const current = await prisma.accessItem.findUnique({
+    where: { id },
+    select: { createdById: true }
+  });
+
+  if (!current) {
+    throw new AppError(404, "Access item not found");
+  }
+
+  const isCreator = current.createdById === user.id && user.role !== UserRole.RESTRICTED;
+
+  if (!isCreator && user.role !== UserRole.ADMIN) {
+    throw new AppError(403, "Only the creator or an admin can change this password");
+  }
+
+  const accessItem = await prisma.accessItem.update({
+    where: { id },
+    data: {
+      encryptedPassword: encryptPassword(password)
+    }
+  });
+
+  await createAuditLog({
+    userId: user.id,
+    action: "ACCESS_PASSWORD_CHANGED",
     accessItemId: id,
     ipAddress
   });

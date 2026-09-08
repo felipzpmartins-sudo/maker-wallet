@@ -7,6 +7,7 @@ import {
   createAccessSchema,
   permissionSchema,
   revealPasswordSchema,
+  updateAccessPasswordSchema,
   updateAccessSchema
 } from "../schemas/accessSchemas";
 import { idParamSchema } from "../schemas/commonSchemas";
@@ -22,6 +23,11 @@ accessRoutes.patch(
   "/:id",
   validate({ params: idParamSchema, body: updateAccessSchema }),
   accessController.update
+);
+accessRoutes.patch(
+  "/:id/password",
+  validate({ params: idParamSchema, body: updateAccessPasswordSchema }),
+  accessController.changePassword
 );
 accessRoutes.delete("/:id", validate({ params: idParamSchema }), accessController.remove);
 accessRoutes.post(

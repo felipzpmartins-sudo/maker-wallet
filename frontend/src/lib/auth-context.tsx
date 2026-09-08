@@ -34,6 +34,7 @@ interface AuthContextValue {
   updateDepartment: (id: string, patch: Partial<Department>) => Promise<void>;
   deleteDepartment: (id: string) => Promise<void>;
   saveAccess: (access: AccessEntry) => Promise<void>;
+  updateAccessPassword: (id: string, password: string) => Promise<void>;
   deleteAccess: (id: string) => Promise<void>;
   listUserAccessIds: (userId: string) => Promise<string[]>;
   setAccessPermission: (
@@ -185,6 +186,7 @@ interface ApiAccess {
   credentialSecret?: string | null;
   credentialToken?: string | null;
   departmentIds?: string[];
+  createdById?: string | null;
   createdBy?: {
     id: string;
     name: string;
@@ -280,6 +282,7 @@ function mapApiAccess(access: ApiAccess): AccessEntry {
     id: access.id,
     departmentId: departmentIds[0],
     departmentIds,
+    createdById: access.createdById ?? access.createdBy?.id ?? undefined,
     createdBy: access.createdBy ?? undefined,
     type,
     name: access.title,
@@ -671,6 +674,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     throw new Error("Sessao expirada. Faca login novamente.");
   }, [accesses, syncAccessesFromApi, token]);
 
+  const updateAccessPassword = useCallback(async (id: string, password: string) => {
+    if (!token) {
+      throw new Error("Sessao expirada. Faca login novamente.");
+    }
+
+    await apiRequest<ApiAccess>(`/access/${id}/password`, {
+      method: "PATCH",
+      token,
+      body: JSON.stringify({ password }),
+    });
+    await syncAccessesFromApi(token);
+  }, [syncAccessesFromApi, token]);
+
   const deleteAccess = useCallback(async (id: string) => {
     if (token) {
       await apiRequest<null>(`/access/${id}`, { method: "DELETE", token });
@@ -899,6 +915,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         updateDepartment,
         deleteDepartment,
         saveAccess,
+        updateAccessPassword,
         deleteAccess,
         listUserAccessIds,
         setAccessPermission,

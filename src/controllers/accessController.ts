@@ -27,6 +27,16 @@ export async function update(request: Request, response: Response) {
   return response.json(success(result, "Access item updated"));
 }
 
+export async function changePassword(request: Request, response: Response) {
+  const result = await accessService.updateAccessPassword(
+    String(request.params.id),
+    request.body.password,
+    request.user!,
+    request.ip
+  );
+  return response.json(success(result, "Access password updated"));
+}
+
 export async function remove(request: Request, response: Response) {
   await accessService.deleteAccess(String(request.params.id), request.user!, request.ip);
   return response.status(204).send();

@@ -77,6 +77,7 @@ Troque essa senha antes de usar em qualquer ambiente real.
 - `GET /users`
 - `POST /access`
 - `GET /access`
+- `PATCH /access/:id/password`
 - `POST /access/:id/reveal-password`
 - `POST /access/:id/permissions`
 - `POST /upload/keystore`

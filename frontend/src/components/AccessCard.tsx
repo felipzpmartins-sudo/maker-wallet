@@ -1,6 +1,7 @@
 import { useState } from "react";
-import { ExternalLink, Pencil, Trash2, UserRound } from "lucide-react";
+import { ExternalLink, KeyRound, Pencil, Trash2, UserRound } from "lucide-react";
 import { toast } from "sonner";
+import { AccessPasswordDialog } from "@/components/AccessPasswordDialog";
 import { PasswordField } from "@/components/PasswordField";
 import { SensitiveField } from "@/components/SensitiveField";
 import { Button } from "@/components/ui/button";
@@ -21,6 +22,7 @@ import {
   type AccessEntry,
   type Department,
 } from "@/lib/mock-data";
+import { useAuth } from "@/lib/auth-context";
 import { sortByName } from "@/lib/utils";
 
 interface AccessCardProps {
@@ -61,8 +63,14 @@ export function AccessCard({
   onEdit,
   onDelete,
 }: AccessCardProps) {
+  const { currentUser, updateAccessPassword } = useAuth();
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [passwordDialogOpen, setPasswordDialogOpen] = useState(false);
+  const [passwordVersion, setPasswordVersion] = useState(0);
+  // Troca de senha: quem cadastrou o acesso, admin ou CEO (regra reforcada na API).
+  const isCreator = !!currentUser && access.createdById === currentUser.id;
+  const canChangePassword = isCreator || !!canManage;
   const accessDepartments = sortByName(
     departments.filter((department) => getAccessDepartmentIds(access).includes(department.id)),
   );
@@ -150,7 +158,23 @@ export function AccessCard({
 
       <div className="mt-4">
         <span className="text-xs text-muted-foreground">Senha</span>
-        <PasswordField accessId={access.id} password={access.password} className="mt-1" />
+        <PasswordField
+          key={passwordVersion}
+          accessId={access.id}
+          password={access.password}
+          className="mt-1"
+        />
+        {canChangePassword && (
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            className="mt-2 px-2 text-muted-foreground hover:text-foreground"
+            onClick={() => setPasswordDialogOpen(true)}
+          >
+            <KeyRound /> Alterar senha
+          </Button>
+        )}
       </div>
 
       {access.notes && (
@@ -158,6 +182,18 @@ export function AccessCard({
           <span className="text-xs text-muted-foreground">Observação</span>
           <p className="mt-0.5 text-sm">{access.notes}</p>
         </div>
+      )}
+
+      {canChangePassword && (
+        <AccessPasswordDialog
+          open={passwordDialogOpen}
+          onOpenChange={setPasswordDialogOpen}
+          accessName={access.name}
+          onSave={async (password) => {
+            await updateAccessPassword(access.id, password);
+            setPasswordVersion((version) => version + 1);
+          }}
+        />
       )}
 
       <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>

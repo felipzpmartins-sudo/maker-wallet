@@ -28,6 +28,7 @@ import {
   type Department,
 } from "@/lib/mock-data";
 import { ApiError } from "@/lib/api";
+import { useAuth } from "@/lib/auth-context";
 import { sortByName } from "@/lib/utils";
 
 interface AccessFormProps {
@@ -57,8 +58,12 @@ export function AccessForm({
   initial,
   onSave,
 }: AccessFormProps) {
+  const { currentUser, isAdmin } = useAuth();
   const [draft, setDraft] = useState<AccessEntry>(emptyDraft(departmentId));
   const [saving, setSaving] = useState(false);
+  // Ao editar, mexem na senha o criador do acesso, admin ou CEO (regra reforcada na API).
+  const canEditPassword =
+    !initial || isAdmin || (!!currentUser && initial.createdById === currentUser.id);
 
   useEffect(() => {
     if (open) {
@@ -281,10 +286,12 @@ export function AccessForm({
             />
           )}
 
-          <div className="space-y-2">
-            <Label>Senha</Label>
-            <Input value={draft.password} onChange={(e) => set({ password: e.target.value })} />
-          </div>
+          {canEditPassword && (
+            <div className="space-y-2">
+              <Label>Senha</Label>
+              <Input value={draft.password} onChange={(e) => set({ password: e.target.value })} />
+            </div>
+          )}
 
           <div className="space-y-2">
             <Label>Observação</Label>
