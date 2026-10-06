@@ -17,6 +17,7 @@ interface AuthContextValue {
   accesses: AccessEntry[];
   renewalServices: RenewalService[];
   login: (email: string, password: string) => Promise<{ ok: boolean; error?: string; mustChangePassword?: boolean }>;
+  loginWithToken: (token: string) => Promise<{ ok: boolean; error?: string; mustChangePassword?: boolean }>;
   changePassword: (password: string) => Promise<{ ok: boolean; error?: string }>;
   register: (
     name: string,
@@ -449,6 +450,29 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     [syncAccessesFromApi, syncDepartmentsFromApi, syncRenewalServicesFromApi, syncUsersFromApi],
   );
 
+  const loginWithToken = useCallback(
+    async (authToken: string) => {
+      try {
+        const apiUser = await apiRequest<ApiUser>("/auth/me", { token: authToken });
+        const mappedUser = readTemporaryProfile(mapApiUser(apiUser));
+        setToken(authToken);
+        setCurrentUser(mappedUser);
+        clearLegacyLocalStorage();
+        await syncDepartmentsFromApi(authToken);
+        await syncAccessesFromApi(authToken);
+        await syncRenewalServicesFromApi(authToken);
+        if (mappedUser.role === "ceo" || mappedUser.role === "admin") {
+          await syncUsersFromApi(authToken);
+        }
+        return { ok: true, mustChangePassword: mappedUser.mustChangePassword };
+      } catch (error) {
+        if (error instanceof ApiError) return { ok: false, error: error.message };
+        return { ok: false, error: "Não foi possível validar o acesso único." };
+      }
+    },
+    [syncAccessesFromApi, syncDepartmentsFromApi, syncRenewalServicesFromApi, syncUsersFromApi],
+  );
+
   const changePassword = useCallback(async (password: string) => {
     if (!token) {
       return { ok: false, error: "Sessao expirada. Faca login novamente." };
@@ -490,6 +514,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   );
 
   const logout = useCallback(() => {
+    const hubUrl = import.meta.env.VITE_MKR_HUB_URL?.trim();
+    if (hubUrl) {
+      window.location.assign(hubUrl);
+      return;
+    }
     setCurrentUser(null);
     setToken(null);
   }, []);
@@ -904,6 +933,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         accesses,
         renewalServices,
         login,
+        loginWithToken,
         changePassword,
         register,
         logout,

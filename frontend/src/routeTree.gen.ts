@@ -9,6 +9,7 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as SsoRouteImport } from './routes/sso'
 import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
 import { Route as RegisterRouteImport } from './routes/register'
 import { Route as LoginRouteImport } from './routes/login'
@@ -26,6 +27,11 @@ import { Route as AppChatRouteImport } from './routes/_app.chat'
 import { Route as AppDepartmentsIndexRouteImport } from './routes/_app.departments.index'
 import { Route as AppDepartmentsIdRouteImport } from './routes/_app.departments.$id'
 
+const SsoRoute = SsoRouteImport.update({
+  id: '/sso',
+  path: '/sso',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const SitemapDotxmlRoute = SitemapDotxmlRouteImport.update({
   id: '/sitemap.xml',
   path: '/sitemap.xml',
@@ -112,6 +118,7 @@ export interface FileRoutesByFullPath {
   '/login': typeof LoginRoute
   '/register': typeof RegisterRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
+  '/sso': typeof SsoRoute
   '/chat': typeof AppChatRoute
   '/dashboard': typeof AppDashboardRoute
   '/permissions': typeof AppPermissionsRoute
@@ -129,6 +136,7 @@ export interface FileRoutesByTo {
   '/login': typeof LoginRoute
   '/register': typeof RegisterRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
+  '/sso': typeof SsoRoute
   '/chat': typeof AppChatRoute
   '/dashboard': typeof AppDashboardRoute
   '/permissions': typeof AppPermissionsRoute
@@ -148,6 +156,7 @@ export interface FileRoutesById {
   '/login': typeof LoginRoute
   '/register': typeof RegisterRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
+  '/sso': typeof SsoRoute
   '/_app/chat': typeof AppChatRoute
   '/_app/dashboard': typeof AppDashboardRoute
   '/_app/permissions': typeof AppPermissionsRoute
@@ -167,6 +176,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/register'
     | '/sitemap.xml'
+    | '/sso'
     | '/chat'
     | '/dashboard'
     | '/permissions'
@@ -184,6 +194,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/register'
     | '/sitemap.xml'
+    | '/sso'
     | '/chat'
     | '/dashboard'
     | '/permissions'
@@ -202,6 +213,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/register'
     | '/sitemap.xml'
+    | '/sso'
     | '/_app/chat'
     | '/_app/dashboard'
     | '/_app/permissions'
@@ -221,10 +233,18 @@ export interface RootRouteChildren {
   LoginRoute: typeof LoginRoute
   RegisterRoute: typeof RegisterRoute
   SitemapDotxmlRoute: typeof SitemapDotxmlRoute
+  SsoRoute: typeof SsoRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/sso': {
+      id: '/sso'
+      path: '/sso'
+      fullPath: '/sso'
+      preLoaderRoute: typeof SsoRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/sitemap.xml': {
       id: '/sitemap.xml'
       path: '/sitemap.xml'
@@ -375,6 +395,7 @@ const rootRouteChildren: RootRouteChildren = {
   LoginRoute: LoginRoute,
   RegisterRoute: RegisterRoute,
   SitemapDotxmlRoute: SitemapDotxmlRoute,
+  SsoRoute: SsoRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

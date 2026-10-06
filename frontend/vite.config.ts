@@ -5,30 +5,32 @@
 //     error logger plugins, and sandbox detection (port/host/strictPort).
 // You can pass additional config via defineConfig({ vite: { ... }, etc... }) if needed.
 import { defineConfig } from "@lovable.dev/vite-tanstack-config";
+import { loadEnv } from "vite";
+
+const env = loadEnv(process.env.NODE_ENV === "production" ? "production" : "development", process.cwd(), "");
+const apiTarget = env.VITE_API_PROXY_TARGET || "https://maker-wallet-production.up.railway.app";
 
 export default defineConfig({
   vite: {
     server: {
       proxy: {
         "/api": {
-          target: "https://maker-wallet-production.up.railway.app",
+          target: apiTarget,
           changeOrigin: true,
-          rewrite: (path) => path.replace(/^\/api/, ""),
+          rewrite: (path: string) => path.replace(/^\/api/, ""),
         },
         "/uploads": {
-          target: "https://maker-wallet-production.up.railway.app",
+          target: apiTarget,
           changeOrigin: true,
         },
       },
     },
+    preview: {
+      allowedHosts: ["maker-wallet-frontend-production.up.railway.app"],
+    },
   },
   nitro: {
-    preset: "vercel",
-    output: {
-      dir: ".vercel/output",
-      serverDir: ".vercel/output/functions/__server.func",
-      publicDir: ".vercel/output/static",
-    },
+    preset: "node-server",
   },
   tanstackStart: {
     // Redirect TanStack Start's bundled server entry to src/server.ts (our SSR error wrapper).
